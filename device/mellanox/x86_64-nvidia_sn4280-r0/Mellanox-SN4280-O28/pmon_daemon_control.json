@@ -2,6 +2,5 @@
     "skip_ledd": true,
     "skip_fancontrol": true,
     "delay_xcvrd": false,
-    "skip_xcvrd_cmis_mgr": false,
-    "skip_chassisd": true
+    "skip_xcvrd_cmis_mgr": true
 }
