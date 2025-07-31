@@ -87,9 +87,22 @@ $(addprefix $(DEST)/, $(KERNEL_MFT_TARGET)): $(DEST)/% :
 
 	sudo dkms build kernel-mft-dkms/$(MFT_VERSION) -k $(KVERSION) -a $(CONFIGURED_ARCH)
 
-	# copy the built modules
-	cp -r $(DKMS_CTRL)/kernel-$(KVERSION)-$(CONFIGURED_ARCH)/module/*.ko \
-			$(DKMS_TMP)/lib/modules/$(KVERSION)/updates/dkms/
+
+	# dkms build generates *.ko.xz compressed kernel modules from Debian 13
+	if ls $(DKMS_CTRL)/kernel-$(KVERSION)-$(CONFIGURED_ARCH)/module/*.ko.xz 1> /dev/null 2>&1; then
+		# Copy compressed kernel modules and decompress them
+		cp -r $(DKMS_CTRL)/kernel-$(KVERSION)-$(CONFIGURED_ARCH)/module/*.ko.xz \
+				$(DKMS_TMP)/lib/modules/$(KVERSION)/updates/dkms/
+		for ko_file in $(DKMS_TMP)/lib/modules/$(KVERSION)/updates/dkms/*.ko.xz; do
+			if [ -f "$$ko_file" ]; then
+				xz -d "$$ko_file"
+			fi
+		done
+	else
+		# dkms generates *.ko uncompressed modules for bookworm or older
+		cp -r $(DKMS_CTRL)/kernel-$(KVERSION)-$(CONFIGURED_ARCH)/module/*.ko \
+				$(DKMS_TMP)/lib/modules/$(KVERSION)/updates/dkms/
+	fi
 
 	pushd $(MFT_NAME)/DEBS
 	dpkg -b $(DKMS_TMP) .
