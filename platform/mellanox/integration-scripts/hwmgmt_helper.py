@@ -135,39 +135,70 @@ class KConfigTask():
 
 
     def get_kconfig_inc(self) -> list:
-        kcfg_inc_raw = FileHandler.read_raw(os.path.join(self.args.build_root, SLK_KCONFIG))
         # Insert common config
-        noarch_start, noarch_end = FileHandler.find_marker_indices(kcfg_inc_raw, MLNX_NOARCH_MARKER)
-        kcfg_inc_raw = FileHandler.insert_kcfg_data(kcfg_inc_raw, noarch_start, noarch_end, KCFGData.noarch_incl)
+        common_config = FileHandler.read_raw(os.path.join(self.args.build_root, SLK_KCONFIG))
+        noarch_start, noarch_end = FileHandler.find_marker_indices(common_config, MLNX_NOARCH_MARKER)
+        common_config = FileHandler.insert_kcfg_data(common_config, noarch_start, noarch_end, KCFGData.noarch_incl)
         # Insert x86 config
-        x86_start, x86_end = FileHandler.find_marker_indices(kcfg_inc_raw, MLNX_KFG_MARKER)
-        kcfg_inc_raw = FileHandler.insert_kcfg_data(kcfg_inc_raw, x86_start, x86_end, KCFGData.x86_incl)
+        amd64_config = FileHandler.read_raw(os.path.join(self.args.build_root, SLK_KCONFIG_AMD64))
+        x86_start, x86_end = FileHandler.find_marker_indices(amd64_config, MLNX_KFG_MARKER)
+        amd64_config = FileHandler.insert_kcfg_data(amd64_config, x86_start, x86_end, KCFGData.x86_incl)
         # Insert arm config
-        kcfg_inc_raw = self.insert_arm64_section(kcfg_inc_raw, KCFGData.arm_incl) 
-        print("\n -> INFO: kconfig-inclusion file is generated \n {}".format("".join(kcfg_inc_raw)))
-        return kcfg_inc_raw
+        arm64_config = FileHandler.read_raw(os.path.join(self.args.build_root, SLK_KCONFIG_ARM64))
+        arm64_config = self.insert_arm64_section(arm64_config, KCFGData.arm_incl) 
+        print("\n -> INFO: kconfig-inclusion file is generated \n {}".format("".join(arm64_config)))
+        return common_config, amd64_config, arm64_config
 
 
-    def get_downstream_kconfig_inc(self, new_kcfg_upstream) -> list:
-        kcfg_final = copy.deepcopy(new_kcfg_upstream)
+    def get_downstream_kconfig_inc(self, common_config_upstream, amd64_config_upstream, arm64_config_upstream) -> list:
         # insert common Kconfig
-        noarch_start, noarch_end = FileHandler.find_marker_indices(kcfg_final, MLNX_NOARCH_MARKER)        
+        common_kcfg_final = copy.deepcopy(common_config_upstream)
+        noarch_start, noarch_end = FileHandler.find_marker_indices(common_kcfg_final, MLNX_NOARCH_MARKER)        
         noarch_final = OrderedDict(list(KCFGData.noarch_incl.items()) + list(KCFGData.noarch_down.items()))
-        kcfg_final = FileHandler.insert_kcfg_data(kcfg_final, noarch_start, noarch_end, noarch_final)
+        common_kcfg_final = FileHandler.insert_kcfg_data(common_kcfg_final, noarch_start, noarch_end, noarch_final)
+
         # insert x86 Kconfig
-        x86_start, x86_end = FileHandler.find_marker_indices(kcfg_final, MLNX_KFG_MARKER)        
+        amd64_kcfg_final = copy.deepcopy(amd64_config_upstream)
+        x86_start, x86_end = FileHandler.find_marker_indices(amd64_kcfg_final, MLNX_KFG_MARKER)        
         x86_final = OrderedDict(list(KCFGData.x86_incl.items()) + list(KCFGData.x86_down.items()))
-        kcfg_final = FileHandler.insert_kcfg_data(kcfg_final, x86_start, x86_end, x86_final)
+        amd64_kcfg_final = FileHandler.insert_kcfg_data(amd64_kcfg_final, x86_start, x86_end, x86_final)
+
         # insert arm Kconfig      
+        arm64_kcfg_final = copy.deepcopy(arm64_config_upstream)
         arm_final = OrderedDict(list(KCFGData.arm_incl.items()) + list(KCFGData.arm_down.items()))
-        kcfg_final = self.insert_arm64_section(kcfg_final, arm_final)
-        # generate diff
-        diff = difflib.unified_diff(new_kcfg_upstream, kcfg_final, fromfile='a/patch/kconfig-inclusions', tofile="b/patch/kconfig-inclusions", lineterm="\n")
-        lines = []
-        for line in diff:
-            lines.append(line)
-        print("\n -> INFO: kconfig-inclusion.patch file is generated \n{}".format("".join(lines)))
-        return lines
+        arm64_kcfg_final = self.insert_arm64_section(arm64_kcfg_final, arm_final)
+
+        all_lines = []
+        
+        # Generate diff for common config
+        common_diff = difflib.unified_diff(common_config_upstream, common_kcfg_final, 
+                                        fromfile='a/config.local/featureset-sonic/config', 
+                                        tofile="b/config.local/featureset-sonic/config", 
+                                        lineterm="\n")
+        
+        for line in common_diff:
+            all_lines.append(line)
+
+        # Generate diff for amd64 config
+        amd64_diff = difflib.unified_diff(amd64_config_upstream, amd64_kcfg_final,
+                                        fromfile='a/config.local/amd64/config.sonic',
+                                        tofile="b/config.local/amd64/config.sonic",
+                                        lineterm="\n")
+
+        for line in amd64_diff:
+            all_lines.append(line)
+
+        # Generate diff for arm64 config
+        arm64_diff = difflib.unified_diff(arm64_config_upstream, arm64_kcfg_final,
+                                        fromfile='a/config.local/arm64/config.sonic-mellanox',
+                                        tofile="b/config.local/arm64/config.sonic-mellanox",
+                                        lineterm="\n")
+        
+        for line in arm64_diff:
+            all_lines.append(line)
+
+        print("\n -> INFO: kconfig-inclusion.patch file is generated \n{}".format("".join(all_lines)))
+        return all_lines
 
 
     def get_kconfig_excl(self) -> list:
@@ -190,11 +221,13 @@ class KConfigTask():
         KCFGData.x86_incl, KCFGData.x86_excl = self.parse_inc_exc(KCFGData.x86_base, KCFGData.x86_updated)
         KCFGData.arm_incl, KCFGData.arm_excl = self.parse_inc_exc(KCFGData.arm_base, KCFGData.arm_updated)
         self.parse_noarch_inc_exc()
-        # Get the updated kconfig-inclusions
-        kcfg_inc_upstream = self.get_kconfig_inc()
-        FileHandler.write_lines(os.path.join(self.args.build_root, SLK_KCONFIG), kcfg_inc_upstream, True)
+        # Get the updated common, amd64, arm64 configs for each file
+        common_config, amd64_config, arm64_config = self.get_kconfig_inc()
+        FileHandler.write_lines(os.path.join(self.args.build_root, SLK_KCONFIG), common_config, True)
+        FileHandler.write_lines(os.path.join(self.args.build_root, SLK_KCONFIG_AMD64), amd64_config, True)
+        FileHandler.write_lines(os.path.join(self.args.build_root, SLK_KCONFIG_ARM64), arm64_config, True)
         # Get the updated kconfig-exclusions
         kcfg_excl_upstream = self.get_kconfig_excl()
         FileHandler.write_lines(os.path.join(self.args.build_root, SLK_KCONFIG_EXCLUDE), kcfg_excl_upstream, True)
         # return the kconfig-inclusions diff
-        return self.get_downstream_kconfig_inc(kcfg_inc_upstream)
+        return self.get_downstream_kconfig_inc(common_config, amd64_config, arm64_config)
