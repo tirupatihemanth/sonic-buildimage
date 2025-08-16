@@ -109,7 +109,7 @@ class KConfigTask():
                 del KCFGData.x86_down[key]
                 KCFGData.noarch_down[key] = val
 
-    def insert_arm64_section(self, raw_lines: list, arm_data: OrderedDict, is_exclusion=False, section=MLNX_ARM_KFG_SECTION) -> list:
+    def insert_arm64_section(self, raw_lines: list, arm_data: OrderedDict, section=MLNX_ARM_KFG_SECTION) -> list:
         # For arm64, config is not added under markers, but it is added under the section [mellanox-arm64]
         # This design decision is taken because of the possibility that there might be conflicting options 
         # present between two different arm64 platforms
@@ -121,10 +121,7 @@ class KConfigTask():
             if not configParser.has_section(MLNX_ARM_KFG_SECTION):
                 configParser.add_section(MLNX_ARM_KFG_SECTION)
             for (key, val) in arm_data.items():
-                if not is_exclusion:
-                    configParser.set(MLNX_ARM_KFG_SECTION, key, val)
-                else:
-                    configParser.set(MLNX_ARM_KFG_SECTION, key)
+                configParser.set(MLNX_ARM_KFG_SECTION, key, val)
             str_io = io.StringIO()
             configParser.write(str_io, space_around_delimiters=False)
             return str_io.getvalue().splitlines(True)
