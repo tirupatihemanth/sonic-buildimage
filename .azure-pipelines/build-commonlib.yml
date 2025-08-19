@@ -9,4 +9,4 @@ schedules:
       - 202???
 
 jobs:
-- template: .azure-pipelines/template-commonlib.yml
+- template: template-commonlib.yml
