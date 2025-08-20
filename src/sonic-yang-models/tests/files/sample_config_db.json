@@ -3194,6 +3194,20 @@
                 "product-name" : "product name",
                 "serial-no" : "1234-5678-91A"
             }
+        },
+        "RECORDER": {
+            "config_db": {
+                "state": "enabled"
+            },
+            "state_db": {
+                "state": "enabled"
+            },
+            "app_db": {
+                "state": "disabled"
+            },
+            "asic_db": {
+                "state": "enabled"
+            }
         }
     },
     "SAMPLE_CONFIG_DB_UNKNOWN": {
