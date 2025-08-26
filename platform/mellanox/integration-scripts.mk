@@ -145,14 +145,14 @@ endif
 	echo -en "\n###-> series file changes in sonic-linux-kernel <-###\n" >> ${HWMGMT_USER_OUTFILE}
 	git diff --no-color --staged -- patches-sonic/series >> ${HWMGMT_USER_OUTFILE}
 
-    echo -en "\n###-> Common config changes in sonic-linux-kernel <-###\n" >> ${HWMGMT_USER_OUTFILE}
-    git diff --no-color --staged -- config.local/featureset-sonic/config >> ${HWMGMT_USER_OUTFILE}
-    
-    echo -en "\n###-> AMD64 config changes in sonic-linux-kernel <-###\n" >> ${HWMGMT_USER_OUTFILE}
-    git diff --no-color --staged -- config.local/amd64/config.sonic >> ${HWMGMT_USER_OUTFILE}
-    
-    echo -en "\n###-> ARM64 config changes in sonic-linux-kernel <-###\n" >> ${HWMGMT_USER_OUTFILE}
-    git diff --no-color --staged -- config.local/arm64/config.sonic-mellanox >> ${HWMGMT_USER_OUTFILE}
+	echo -en "\n###-> Common config changes in sonic-linux-kernel <-###\n" >> ${HWMGMT_USER_OUTFILE}
+	git diff --no-color --staged -- config.local/featureset-sonic/config >> ${HWMGMT_USER_OUTFILE}
+
+	echo -en "\n###-> AMD64 config changes in sonic-linux-kernel <-###\n" >> ${HWMGMT_USER_OUTFILE}
+	git diff --no-color --staged -- config.local/amd64/config.sonic >> ${HWMGMT_USER_OUTFILE}
+
+	echo -en "\n###-> ARM64 config changes in sonic-linux-kernel <-###\n" >> ${HWMGMT_USER_OUTFILE}
+	git diff --no-color --staged -- config.local/arm64/config.sonic-mellanox >> ${HWMGMT_USER_OUTFILE}
 
 	echo -en "\n###-> kconfig-exclusions file changes in sonic-linux-kernel <-###\n" >> ${HWMGMT_USER_OUTFILE}
 	git diff --no-color --staged -- patch/kconfig-exclusions >> ${HWMGMT_USER_OUTFILE}

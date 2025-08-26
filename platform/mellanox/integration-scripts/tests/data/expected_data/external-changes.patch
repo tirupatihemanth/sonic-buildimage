@@ -14,7 +14,7 @@
 
 --- a/config.local/arm64/config.sonic-mellanox
 +++ b/config.local/arm64/config.sonic-mellanox
-@@ -5,4 +5,15 @@
+@@ -6,4 +6,15 @@
  CONFIG_HWMON=y
  CONFIG_OF=y
  CONFIG_THERMAL_NETLINK=y
