@@ -154,9 +154,6 @@ endif
 	echo -en "\n###-> ARM64 config changes in sonic-linux-kernel <-###\n" >> ${HWMGMT_USER_OUTFILE}
 	git diff --no-color --staged -- config.local/arm64/config.sonic-mellanox >> ${HWMGMT_USER_OUTFILE}
 
-	echo -en "\n###-> kconfig-exclusions file changes in sonic-linux-kernel <-###\n" >> ${HWMGMT_USER_OUTFILE}
-	git diff --no-color --staged -- patch/kconfig-exclusions >> ${HWMGMT_USER_OUTFILE}
-
 	echo -en '\n###-> Summary of files updated in sonic-linux-kernel <-###\n' >> ${HWMGMT_USER_OUTFILE}
 	git diff --no-color --staged --stat --output=${TMPFILE_OUT}
 	cat ${TMPFILE_OUT} | tee -a ${HWMGMT_USER_OUTFILE}
@@ -230,10 +227,10 @@ endif
 
     # Commit the changes in linux kernel and and log the diff
 	pushd $(BUILD_WORKDIR)/src/sonic-linux-kernel
-	git add -- patch/
+	git add -- patches-sonic/
 
 	echo -en "\n###-> series file changes in sonic-linux-kernel <-###\n" >> ${SDK_USER_OUTFILE}
-	git diff --no-color --staged -- patch/series >> ${SDK_USER_OUTFILE}
+	git diff --no-color --staged -- patches-sonic/series >> ${SDK_USER_OUTFILE}
 
 	echo -en "\n###-> summary of files updated in sonic-linux-kernel <-###\n" >> ${SDK_USER_OUTFILE}
 	git diff --no-color --staged --stat >> ${SDK_USER_OUTFILE}
