@@ -725,7 +725,7 @@ if [[ $SECURE_UPGRADE_MODE == 'dev' || $SECURE_UPGRADE_MODE == "prod" ]]; then
                                                              -k $FILESYSTEM_ROOT
 
         # verifying vmlinuz file.
-        sudo ./scripts/secure_boot_signature_verification.sh -e $FILESYSTEM_ROOT/boot/vmlinuz-${LINUX_KERNEL_VERSION}-${CONFIGURED_ARCH} \
+        sudo ./scripts/secure_boot_signature_verification.sh -e $FILESYSTEM_ROOT/boot/vmlinuz-${LINUX_KERNEL_VERSION}+deb13-sonic-${CONFIGURED_ARCH} \
                                                              -c $SECURE_UPGRADE_SIGNING_CERT \
                                                              -k $FILESYSTEM_ROOT
     fi
@@ -736,10 +736,10 @@ fi
 sudo chroot $FILESYSTEM_ROOT update-initramfs -u
 ## Convert initrd image to u-boot format
 if [[ $TARGET_BOOTLOADER == uboot ]]; then
-    INITRD_FILE=initrd.img-${LINUX_KERNEL_VERSION}-${CONFIGURED_ARCH}
-    KERNEL_FILE=vmlinuz-${LINUX_KERNEL_VERSION}-${CONFIGURED_ARCH}
+    INITRD_FILE=initrd.img-${LINUX_KERNEL_VERSION}+deb13-sonic-${CONFIGURED_ARCH}
+    KERNEL_FILE=vmlinuz-${LINUX_KERNEL_VERSION}+deb13-sonic-${CONFIGURED_ARCH}
     if [[ $CONFIGURED_ARCH == armhf ]]; then
-        INITRD_FILE=initrd.img-${LINUX_KERNEL_VERSION}-armmp
+        INITRD_FILE=initrd.img-${LINUX_KERNEL_VERSION}+deb13-sonic-armmp
         sudo LANG=C chroot $FILESYSTEM_ROOT mkimage -A arm -O linux -T ramdisk -C gzip -d /boot/$INITRD_FILE /boot/u${INITRD_FILE}
         ## Overwriting the initrd image with uInitrd
         sudo LANG=C chroot $FILESYSTEM_ROOT mv /boot/u${INITRD_FILE} /boot/$INITRD_FILE
