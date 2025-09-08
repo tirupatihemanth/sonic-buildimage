@@ -116,6 +116,6 @@ mv ${CURR_VMLINUZ}-signed ${CURR_VMLINUZ}
 #########################
 # Kernel Modules signing
 #########################
-./scripts/signing_kernel_modules.sh -l $LINUX_KERNEL_VERSION -c ${PEM_CERT} -p ${PEM_PRIV_KEY} -k ${FS_ROOT}
+./scripts/signing_kernel_modules.sh -l ${LINUX_KERNEL_VERSION}+deb13 -c ${PEM_CERT} -p ${PEM_PRIV_KEY} -k ${FS_ROOT}
 
 echo "$0 signing & verifying EFI files and Kernel Modules DONE"
