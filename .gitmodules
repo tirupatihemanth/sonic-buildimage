@@ -3,7 +3,7 @@
 	url = https://github.com/sonic-net/sonic-swss-common
 [submodule "sonic-linux-kernel"]
 	path = src/sonic-linux-kernel
-	url = https://github.com/sonic-net/sonic-linux-kernel
+	url = https://github.com/tirupatihemanth/sonic-linux-kernel
 [submodule "sonic-sairedis"]
 	path = src/sonic-sairedis
 	url = https://github.com/sonic-net/sonic-sairedis
@@ -117,7 +117,7 @@
 	url = https://github.com/sonic-net/sonic-dhcpmon.git
 [submodule "src/sonic-dash-api"]
 	path = src/sonic-dash-api
-	url = https://github.com/sonic-net/sonic-dash-api.git
+	url = https://github.com/tirupatihemanth/sonic-dash-api.git
 [submodule "src/sonic-dash-ha"]
 	path = src/sonic-dash-ha
 	url = https://github.com/sonic-net/sonic-dash-ha
