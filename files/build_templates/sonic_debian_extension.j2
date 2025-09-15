@@ -309,11 +309,9 @@ install_deb_package $debs_path/libtac2_*.deb
 install_deb_package $debs_path/libpam-tacplus_*.deb
 install_deb_package $debs_path/libnss-tacplus_*.deb
 # Install bash-tacplus
-# TODO(trixie): Fix compilation
-#install_deb_package $debs_path/bash-tacplus_*.deb
+install_deb_package $debs_path/bash-tacplus_*.deb
 # Install audisp-tacplus
-# TODO(trixie): Fix compilation
-#install_deb_package $debs_path/audisp-tacplus_*.deb
+install_deb_package $debs_path/audisp-tacplus_*.deb
 # Disable tacplus and LDAP by default
 ## NOTE: this syntax of pam-auth-update is meant to be used when the package gets removed, not for specifying
 ## some local configuration of a PAM module. Currently, there's no clean way of noninteractively specifying
