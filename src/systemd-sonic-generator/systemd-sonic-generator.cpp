@@ -14,6 +14,41 @@
 #include <fstream>
 #include <unordered_map>
 #include <regex>
+#include <fcntl.h>
+#include <stdarg.h>
+
+// Utility function for logging to /dev/kmsg
+void log_to_kmsg(const char* format, ...) {
+    static int kmsg_fd = -1;
+    
+    // Open /dev/kmsg if not already opened
+    if (kmsg_fd == -1) {
+        kmsg_fd = open("/dev/kmsg", O_WRONLY);
+        if (kmsg_fd == -1) {
+            // Fallback to stderr if /dev/kmsg is not available
+            va_list args;
+            va_start(args, format);
+            vfprintf(stderr, format, args);
+            va_end(args);
+            return;
+        }
+    }
+    
+    va_list args;
+    va_start(args, format);
+    
+    // Format the message
+    char buffer[1024];
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    
+    // Add priority prefix for kernel messages (6 = info level)
+    char kmsg_buffer[1052];
+    snprintf(kmsg_buffer, sizeof(kmsg_buffer), "<6>systemd-sonic-generator: %s", buffer);
+    
+    // Write to /dev/kmsg
+    write(kmsg_fd, kmsg_buffer, strlen(kmsg_buffer));
+}
 
 #define MAX_NUM_TARGETS 48
 #define MAX_NUM_INSTALL_LINES 48
@@ -186,7 +221,7 @@ static int get_target_lines(const char* unit_file, char* target_lines[]) {
     fp = fopen(unit_file, "r");
 
     if (fp == NULL) {
-        fprintf(stderr, "Failed to open file %s\n", unit_file);
+        log_to_kmsg("Failed to open file %s\n", unit_file);
         return -1;
     }
 
@@ -200,8 +235,8 @@ static int get_target_lines(const char* unit_file, char* target_lines[]) {
         }
         else if (found_install) {
             if (num_target_lines >= MAX_NUM_INSTALL_LINES) {
-                fprintf(stderr, "Number of lines in [Install] section of %s exceeds MAX_NUM_INSTALL_LINES\n", unit_file);
-                fputs("Extra [Install] lines will be ignored\n", stderr);
+                log_to_kmsg("Number of lines in [Install] section of %s exceeds MAX_NUM_INSTALL_LINES\n", unit_file);
+                log_to_kmsg("Extra [Install] lines will be ignored\n");
                 break;
             }
             target_lines[num_target_lines] = strdup(line);
@@ -277,7 +312,7 @@ static int get_install_targets_from_line(std::string target_string, std::string 
     int num_targets = 0;
 
     if (target_string.empty() || install_type.empty()) {
-        fprintf(stderr, "Invalid target string or install type\n");
+        log_to_kmsg("Invalid target string or install type\n");
         exit(EXIT_FAILURE);
     }
 
@@ -285,8 +320,8 @@ static int get_install_targets_from_line(std::string target_string, std::string 
 
     while (ss >> target) {
         if (num_targets + existing_targets >= MAX_NUM_TARGETS) {
-            fprintf(stderr, "Number of targets exceeds MAX_NUM_TARGETS\n");
-            fputs("Additional targets will be ignored\n", stderr);
+            log_to_kmsg("Number of targets exceeds MAX_NUM_TARGETS\n");
+            log_to_kmsg("Additional targets will be ignored\n");
             break;
         }
         // handle install targets using the '%i' systemd specifier
@@ -467,7 +502,7 @@ int get_install_targets(std::string unit_file, char* targets[]) {
 
     num_target_lines = get_target_lines(file_path.c_str(), target_lines);
     if (num_target_lines < 0) {
-        fprintf(stderr, "Error parsing targets for %s\n", unit_file.c_str());
+        log_to_kmsg("Error parsing targets for %s\n", unit_file.c_str());
         return -1;
     }
 
@@ -514,7 +549,7 @@ int get_unit_files(const char* config_file, char* unit_files[], int unit_files_s
     fp = fopen(config_file, "r");
 
     if (fp == NULL) {
-        fprintf(stderr, "Failed to open %s\n", config_file);
+        log_to_kmsg("Failed to open %s\n", config_file);
         exit(EXIT_FAILURE);
     }
 
@@ -527,7 +562,7 @@ int get_unit_files(const char* config_file, char* unit_files[], int unit_files_s
 
     while ((read = getline(&line, &len, fp)) != -1) {
         if (num_unit_files >= unit_files_size) {
-            fprintf(stderr, "Maximum number of units exceeded, ignoring extras\n");
+            log_to_kmsg("Maximum number of units exceeded, ignoring extras\n");
             break;
         }
         strip_trailing_newline(line);
@@ -590,7 +625,7 @@ std::string insert_instance_number(const std::string& unit_file, int instance, c
     ***/
     size_t at_pos = unit_file.find("@");
     if (at_pos == std::string::npos) {
-        fprintf(stderr, "Invalid unit file %s for instance %d\n", unit_file.c_str(), instance);
+        log_to_kmsg("Invalid unit file %s for instance %d\n", unit_file.c_str(), instance);
         return "";
     }
 
@@ -622,7 +657,7 @@ static int create_symlink(const std::string& unit, const std::string& target, co
         // If doesn't exist, create
         r = mkdir(final_install_dir.c_str(), 0755);
         if (r == -1) {
-            fprintf(stderr, "Unable to create target directory %s\n", final_install_dir.c_str());
+            log_to_kmsg("Unable to create target directory %s\n", final_install_dir.c_str());
             return -1;
         }
     }
@@ -630,13 +665,13 @@ static int create_symlink(const std::string& unit, const std::string& target, co
         // If is regular file, remove and create
         r = remove(final_install_dir.c_str());
         if (r == -1) {
-            fprintf(stderr, "Unable to remove file with same name as target directory %s\n", final_install_dir.c_str());
+            log_to_kmsg("Unable to remove file with same name as target directory %s\n", final_install_dir.c_str());
             return -1;
         }
 
         r = mkdir(final_install_dir.c_str(), 0755);
         if (r == -1) {
-            fprintf(stderr, "Unable to create target directory %s\n", final_install_dir.c_str());
+            log_to_kmsg("Unable to create target directory %s\n", final_install_dir.c_str());
             return -1;
         }
     }
@@ -644,14 +679,14 @@ static int create_symlink(const std::string& unit, const std::string& target, co
         // If directory, verify correct permissions
         r = chmod(final_install_dir.c_str(), 0755);
         if (r == -1) {
-            fprintf(stderr, "Unable to change permissions of existing target directory %s\n", final_install_dir.c_str());
+            log_to_kmsg("Unable to change permissions of existing target directory %s\n", final_install_dir.c_str());
             return -1;
         }
     }
 
     if (is_devnull(dest_path.c_str())) {
         if (remove(dest_path.c_str()) != 0) {
-            fprintf(stderr, "Unable to remove existing symlink %s\n", dest_path.c_str());
+            log_to_kmsg("Unable to remove existing symlink %s\n", dest_path.c_str());
             return -1;
         }
     }
@@ -661,7 +696,7 @@ static int create_symlink(const std::string& unit, const std::string& target, co
     if (r < 0) {
         if (errno == EEXIST)
             return 0;
-        fprintf(stderr, "Error creating symlink %s from source %s\n", dest_path.c_str(), src_path.c_str());
+        log_to_kmsg("Error creating symlink %s from source %s\n", dest_path.c_str(), src_path.c_str());
         return -1;
     }
 
@@ -685,7 +720,7 @@ static int install_unit_file(std::string unit_file, std::string target, std::str
     int r;
 
     if (unit_file.empty() || target.empty() || install_dir.empty()){
-        fprintf(stderr, "Invalid unit file, target or install directory\n");
+        log_to_kmsg("Invalid unit file, target or install directory\n");
         exit(EXIT_FAILURE);
     }
 
@@ -702,7 +737,7 @@ static int install_unit_file(std::string unit_file, std::string target, std::str
 
             r = create_symlink(unit_file, target_instance, install_dir, i, "");
             if (r < 0)
-                fprintf(stderr, "Error installing %s for target %s\n", unit_file.c_str(), target_instance.c_str());
+                log_to_kmsg("Error installing %s for target %s\n", unit_file.c_str(), target_instance.c_str());
         }
     } else if (num_dpus > 0 && unit_file.find("@") != std::string::npos) {
         // If multi-instance service for DPU
@@ -712,12 +747,12 @@ static int install_unit_file(std::string unit_file, std::string target, std::str
         for (int i = 0; i < num_dpus; i++) {
             r = create_symlink(unit_file, target, install_dir, i, DPU_PREFIX);
             if (r < 0)
-                fprintf(stderr, "Error installing %s for target %s\n", unit_file.c_str(), target.c_str());
+                log_to_kmsg("Error installing %s for target %s\n", unit_file.c_str(), target.c_str());
         }
     } else {
         r = create_symlink(unit_file, target, install_dir, -1, "");
         if (r < 0)
-            fprintf(stderr, "Error installing %s for target %s\n", unit_file.c_str(), target.c_str());
+            log_to_kmsg("Error installing %s for target %s\n", unit_file.c_str(), target.c_str());
     }
 
     return 0;
@@ -750,7 +785,7 @@ const char* get_platform() {
     const char* machine_config_file = get_machine_config_file();
     fp = fopen(machine_config_file, "r");
     if (fp == NULL) {
-        fprintf(stderr, "Failed to open %s\n", machine_config_file);
+        log_to_kmsg("Failed to open %s\n", machine_config_file);
         exit(EXIT_FAILURE);
     }
 
@@ -845,29 +880,29 @@ const struct json_object* get_platform_info() {
 
     FILE *fp = fopen(platform_file_path, "r");
     if (fp == NULL) {
-        fprintf(stdout, "Failed to open %s\n", platform_file_path);
+        log_to_kmsg("Failed to open %s\n", platform_file_path);
         set_invalid_pointer((void **)&platform_info);
         return NULL;
     }
     if (fseek(fp, 0, SEEK_END) != 0) {
-        fprintf(stdout, "Failed to seek to end of %s\n", platform_file_path);
+        log_to_kmsg("Failed to seek to end of %s\n", platform_file_path);
         fclose(fp);
         exit(EXIT_FAILURE);
     }
     size_t fsize = ftell(fp);
     if (fseek(fp, 0, SEEK_SET) != 0) {
-        fprintf(stdout, "Failed to seek to beginning of %s\n", platform_file_path);
+        log_to_kmsg("Failed to seek to beginning of %s\n", platform_file_path);
         fclose(fp);
         exit(EXIT_FAILURE);
     }
     char *platform_json = (char*) malloc(fsize + 1);
     if (platform_json == NULL) {
-        fprintf(stdout, "Failed to allocate memory for %s\n", platform_file_path);
+        log_to_kmsg("Failed to allocate memory for %s\n", platform_file_path);
         fclose(fp);
         exit(EXIT_FAILURE);
     }
     if (fread(platform_json, fsize, 1, fp) != 1) {
-        fprintf(stdout, "Failed to read %s\n", platform_file_path);
+        log_to_kmsg("Failed to read %s\n", platform_file_path);
         free(platform_json);
         fclose(fp);
         exit(EXIT_FAILURE);
@@ -877,7 +912,7 @@ const struct json_object* get_platform_info() {
 
     platform_info = json_tokener_parse(platform_json);
     if (platform_info == NULL) {
-        fprintf(stderr, "Failed to parse %s\n", platform_file_path);
+        log_to_kmsg("Failed to parse %s\n", platform_file_path);
         free(platform_json);
         return NULL;
     }
@@ -953,13 +988,13 @@ static int get_num_of_dpu() {
  */
 static int install_network_unit(std::string unit_name) {
     if (unit_name.empty()) {
-        fprintf(stderr, "Invalid network unit\n");
+        log_to_kmsg("Invalid network unit\n");
         exit(EXIT_FAILURE);
     }
 
     std::string unit_type = unit_name.substr(unit_name.find(".") + 1);
     if (unit_type.empty()) {
-        fprintf(stderr, "Invalid network unit %s\n", unit_name.c_str());
+        log_to_kmsg("Invalid network unit %s\n", unit_name.c_str());
         return -1;
     }
 
@@ -967,7 +1002,7 @@ static int install_network_unit(std::string unit_name) {
     std::string original_path;
     std::string subdir = "/network/";
     if (unit_type != "netdev" && unit_type != "network") {
-        fprintf(stderr, "Invalid network unit %s\n", unit_type.c_str());
+        log_to_kmsg("Invalid network unit %s\n", unit_type.c_str());
         return -1;
     }
 
@@ -979,18 +1014,18 @@ static int install_network_unit(std::string unit_name) {
     if (stat(install_path.c_str(), &st) == 0) {
         // If the file already exists, remove it
         if (S_ISDIR(st.st_mode)) {
-            fprintf(stderr, "Error: %s is a directory\n", install_path.c_str());
+            log_to_kmsg("Error: %s is a directory\n", install_path.c_str());
             return -1;
         }
         if (remove(install_path.c_str()) != 0) {
-            fprintf(stderr, "Error removing existing file %s\n", install_path.c_str());
+            log_to_kmsg("Error removing existing file %s\n", install_path.c_str());
             return -1;
         }
     }
 
     if (is_devnull(install_path.c_str())) {
         if (remove(install_path.c_str()) != 0) {
-            fprintf(stderr, "Unable to remove existing symlink %s\n", install_path.c_str());
+            log_to_kmsg("Unable to remove existing symlink %s\n", install_path.c_str());
             return -1;
         }
     }
@@ -998,7 +1033,7 @@ static int install_network_unit(std::string unit_name) {
     if (symlink(original_path.c_str(), install_path.c_str()) != 0) {
         if (errno == EEXIST)
             return 0;
-        fprintf(stderr, "Error creating symlink %s -> %s (%s)\n", install_path.c_str(), original_path.c_str(), strerror(errno));
+        log_to_kmsg("Error creating symlink %s -> %s (%s)\n", install_path.c_str(), original_path.c_str(), strerror(errno));
         return -1;
     }
 
@@ -1029,7 +1064,7 @@ static int render_network_service_for_smart_switch() {
 
     FILE *fp = fopen(unit_path.c_str(), "r");
     if (fp == NULL) {
-        fprintf(stderr, "Failed to open %s\n", unit_path.c_str());
+        log_to_kmsg("Failed to open %s\n", unit_path.c_str());
         return -1;
     }
     fseek(fp, 0, SEEK_END);
@@ -1038,12 +1073,12 @@ static int render_network_service_for_smart_switch() {
     size_t len = file_size + buffer_instruction.length() + 1;
     char *unit_content = (char*) calloc(len, sizeof(unit_content));
     if (unit_content == NULL) {
-        fprintf(stderr, "Failed to allocate memory for %s\n", unit_path.c_str());
+        log_to_kmsg("Failed to allocate memory for %s\n", unit_path.c_str());
         fclose(fp);
         exit(EXIT_FAILURE);
     }
     if (fread(unit_content, file_size, 1, fp) != 1) {
-        fprintf(stderr, "Failed to read %s\n", unit_path.c_str());
+        log_to_kmsg("Failed to read %s\n", unit_path.c_str());
         free(unit_content);
         fclose(fp);
         exit(EXIT_FAILURE);
@@ -1079,12 +1114,12 @@ static int render_network_service_for_smart_switch() {
     // Write the modified unit file
     fp = fopen(unit_path.c_str(), "w");
     if (fp == NULL) {
-        fprintf(stderr, "Failed to open %s\n", unit_path.c_str());
+        log_to_kmsg("Failed to open %s\n", unit_path.c_str());
         free(unit_content);
         exit(EXIT_FAILURE);
     }
     if (fwrite(unit_content, strlen(unit_content), 1, fp) != 1) {
-        fprintf(stderr, "Failed to write %s\n", unit_path.c_str());
+        log_to_kmsg("Failed to write %s\n", unit_path.c_str());
         free(unit_content);
         fclose(fp);
         exit(EXIT_FAILURE);
@@ -1133,7 +1168,7 @@ static int install_network_service_for_smart_switch() {
     std::string systemd_networkd = get_etc_systemd() + std::string("/system/systemd-networkd.service");
     if (is_devnull(systemd_networkd.c_str())) {
         if (remove(systemd_networkd.c_str()) != 0) {
-            fprintf(stderr, "Unable to remove existing symlink %s\n", systemd_networkd.c_str());
+            log_to_kmsg("Unable to remove existing symlink %s\n", systemd_networkd.c_str());
             return -1;
         }
     }
@@ -1157,7 +1192,7 @@ int ssg_main(int argc, char **argv) {
 #endif
 
     if (argc <= 1) {
-        fputs("Installation directory required as argument\n", stderr);
+        log_to_kmsg("Installation directory required as argument\n");
         return 1;
     }
 
@@ -1196,14 +1231,14 @@ int ssg_main(int argc, char **argv) {
 
         num_targets = get_install_targets(unit_instance, targets);
         if (num_targets < 0) {
-            fprintf(stderr, "Error parsing %s\n", unit_instance.c_str());
+            log_to_kmsg("Error parsing %s\n", unit_instance.c_str());
             free(unit_files[i]);
             continue;
         }
 
         for (int j = 0; j < num_targets; j++) {
             if (install_unit_file(unit_instance, targets[j], install_dir) != 0)
-                fprintf(stderr, "Error installing %s to target directory %s\n", unit_instance.c_str(), targets[j]);
+                log_to_kmsg("Error installing %s to target directory %s\n", unit_instance.c_str(), targets[j]);
 
             free(targets[j]);
         }
