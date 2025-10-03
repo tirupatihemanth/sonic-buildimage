@@ -38,13 +38,12 @@ void log_to_kmsg(const char* format, ...) {
     va_start(args, format);
     
     // Format the message
-    char buffer[1024];
-    vsnprintf(buffer, sizeof(buffer), format, args);
+    char kmsg_buffer[1024];
+    char *buffer_p;
+    buffer_p = stpncpy(kmsg_buffer, "<6>systemd-sonic-generator: ", sizeof(kmsg_buffer))
+    vsnprintf(buffer_p, sizeof(kmsg_buffer) - (buffer_p - kmsg_buffer), format, args);
     va_end(args);
-    
-    // Add priority prefix for kernel messages (6 = info level)
-    char kmsg_buffer[1052];
-    snprintf(kmsg_buffer, sizeof(kmsg_buffer), "<6>systemd-sonic-generator: %s", buffer);
+    kmsg_buffer[1023] = '\0';
     
     // Write to /dev/kmsg
     write(kmsg_fd, kmsg_buffer, strlen(kmsg_buffer));
