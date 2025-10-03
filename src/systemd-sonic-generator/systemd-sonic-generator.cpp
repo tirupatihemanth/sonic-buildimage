@@ -10,6 +10,7 @@
 #include <json-c/json.h>
 #include <string>
 #include <sstream>
+#include <filesystem>
 #include <unordered_set>
 #include <fstream>
 #include <unordered_map>
@@ -102,7 +103,7 @@ void clean_up_cache() {
  *
  * @param pointer A pointer to a pointer variable.
  */
-void set_invalid_pointer(void **pointer) {
+static void set_invalid_pointer(void **pointer) {
     *pointer = (void *)-1;
 }
 
@@ -115,7 +116,7 @@ void set_invalid_pointer(void **pointer) {
  * @param pointer The pointer to be checked.
  * @return true if the pointer is valid, false otherwise.
  */
-bool is_valid_pointer(void *pointer) {
+static bool is_valid_pointer(void *pointer) {
     return pointer != NULL && pointer != (void *)-1;
 }
 
@@ -126,11 +127,11 @@ bool is_valid_pointer(void *pointer) {
  * @param pointer The pointer to check.
  * @return true if the pointer is not NULL, false otherwise.
  */
-bool is_initialized_pointer(void *pointer) {
+static bool is_initialized_pointer(void *pointer) {
     return pointer != NULL;
 }
 
-void strip_trailing_newline(char* str) {
+static void strip_trailing_newline(char* str) {
     /***
     Strips trailing newline from a string if it exists
     ***/
@@ -143,7 +144,7 @@ void strip_trailing_newline(char* str) {
         str[l-1] = '\0';
 }
 
-void strip_trailing_newline(std::string& str) {
+static void strip_trailing_newline(std::string& str) {
     /***
     Strips trailing newline from a string if it exists
     ***/
@@ -951,7 +952,7 @@ static int get_num_of_dpu() {
  * @param unit_name The name of the network unit to install.
  * @return 0 if the network unit is installed successfully, or -1 if an error occurs.
  */
-static int install_network_unit(std::string unit_name) {
+static int install_network_unit(std::string unit_name, const std::filesystem::path& install_dir) {
     if (unit_name.empty()) {
         fprintf(stderr, "Invalid network unit\n");
         exit(EXIT_FAILURE);
@@ -1006,7 +1007,7 @@ static int install_network_unit(std::string unit_name) {
 }
 
 
-static int render_network_service_for_smart_switch() {
+static int render_network_service_for_smart_switch(const std::filesystem::path& install_dir) {
     if (!smart_switch_npu) {
         return 0;
     }
@@ -1016,104 +1017,37 @@ static int render_network_service_for_smart_switch() {
         return 0;
     }
 
-    std::stringstream ss;
-    ss << "\nBefore=";
-    for (int i = 0; i < num_dpus; i++) {
-        ss << "database@dpu" << i << ".service";
-        if (i != num_dpus - 1) {
-            ss << " ";
-        }
-    }
-    std::string buffer_instruction = ss.str();
     std::string unit_path = std::string(get_unit_file_prefix()) + "/midplane-network-npu.service";
+    auto unit_override_dir = install_dir / "midplane-network-npu.service.d";
+    std::filesystem::create_directory(unit_override_dir);
 
-    FILE *fp = fopen(unit_path.c_str(), "r");
-    if (fp == NULL) {
-        fprintf(stderr, "Failed to open %s\n", unit_path.c_str());
-        return -1;
-    }
-    fseek(fp, 0, SEEK_END);
-    size_t file_size = ftell(fp);
-    fseek(fp, 0, SEEK_SET);
-    size_t len = file_size + buffer_instruction.length() + 1;
-    char *unit_content = (char*) calloc(len, sizeof(unit_content));
-    if (unit_content == NULL) {
-        fprintf(stderr, "Failed to allocate memory for %s\n", unit_path.c_str());
-        fclose(fp);
-        exit(EXIT_FAILURE);
-    }
-    if (fread(unit_content, file_size, 1, fp) != 1) {
-        fprintf(stderr, "Failed to read %s\n", unit_path.c_str());
-        free(unit_content);
-        fclose(fp);
-        exit(EXIT_FAILURE);
-    }
-    fclose(fp);
+    auto unit_ordering_file_path = unit_override_dir / "ordering.conf";
 
-    // Find insert point for Before instruction
-    char *insert_point = strstr(unit_content, "[Unit]");
-    insert_point += strlen("[Unit]");
-    // Move the rest of the file to make room for the Before instruction
-    memmove(insert_point + buffer_instruction.length(), insert_point, file_size - (insert_point - unit_content));
-    // Insert the Before instruction
-    memcpy(insert_point, buffer_instruction.c_str(), buffer_instruction.length());
-    // Remove original Before instruction
-    insert_point += buffer_instruction.length();
-    char *before_start = strstr(insert_point, "Before=");
-    while (before_start != NULL) {
-        char *before_end = strchr(before_start, '\n');
-        if (before_end == NULL) {
-            before_end = before_start + strlen(before_start);
-        } else {
-            // Include newline character
-            before_end += 1;
+    std::ofstream unit_ordering_file;
+    unit_ordering_file.open(unit_ordering_file_path);
+    unit_ordering_file << "[Unit]";
+    unit_ordering_file << "\nBefore=";
+    for (int i = 0; i < num_dpus; i++) {
+        unit_ordering_file << "database@dpu" << i << ".service";
+        if (i != num_dpus - 1) {
+            unit_ordering_file << " ";
         }
-        const char *target_service = strstr(before_start, "database@dpu");
-        if (target_service != NULL && target_service < before_end) {
-            memmove(before_start, before_end, strlen(before_end) + 1);
-        } else {
-            before_start = before_end;
-        }
-        before_start = strstr(before_start, "Before=");
     }
-    // Write the modified unit file
-    fp = fopen(unit_path.c_str(), "w");
-    if (fp == NULL) {
-        fprintf(stderr, "Failed to open %s\n", unit_path.c_str());
-        free(unit_content);
-        exit(EXIT_FAILURE);
-    }
-    if (fwrite(unit_content, strlen(unit_content), 1, fp) != 1) {
-        fprintf(stderr, "Failed to write %s\n", unit_path.c_str());
-        free(unit_content);
-        fclose(fp);
-        exit(EXIT_FAILURE);
-    }
-    fclose(fp);
-    free(unit_content);
 
     return 0;
 }
 
 
-static int install_network_service_for_smart_switch() {
+static int install_network_service_for_smart_switch(const std::filesystem::path& install_dir) {
     const char** network_units = NULL;
     if (smart_switch_npu) {
         static const char* npu_network_units[] = {
             "bridge-midplane.netdev",
-            "bridge-midplane.network",
             "dummy-midplane.netdev",
-            "dummy-midplane.network",
-            "midplane-network-npu.network",
             NULL
         };
         network_units = npu_network_units;
     } else if (smart_switch_dpu) {
-        static const char* dpu_network_units[] = {
-            "midplane-network-dpu.network",
-            NULL
-        };
-        network_units = dpu_network_units;
     } else {
         return -1;
     }
@@ -1123,19 +1057,10 @@ static int install_network_service_for_smart_switch() {
     }
 
     while(*network_units) {
-        if (install_network_unit(*network_units) != 0) {
+        if (install_network_unit(*network_units, install_dir) != 0) {
             return -1;
         }
         network_units++;
-    }
-
-    // If the systemd-networkd is masked, unmask it
-    std::string systemd_networkd = get_etc_systemd() + std::string("/system/systemd-networkd.service");
-    if (is_devnull(systemd_networkd.c_str())) {
-        if (remove(systemd_networkd.c_str()) != 0) {
-            fprintf(stderr, "Unable to remove existing symlink %s\n", systemd_networkd.c_str());
-            return -1;
-        }
     }
 
     return 0;
@@ -1174,10 +1099,10 @@ int ssg_main(int argc, char **argv) {
 
     // Install and render midplane network service for smart switch
     if (smart_switch) {
-        if (render_network_service_for_smart_switch() != 0) {
+        if (render_network_service_for_smart_switch(install_dir) != 0) {
             return -1;
         }
-        if (install_network_service_for_smart_switch() != 0) {
+        if (install_network_service_for_smart_switch(install_dir) != 0) {
             return -1;
         }
     }
