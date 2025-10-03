@@ -336,6 +336,7 @@ sudo LANG=C DEBIAN_FRONTEND=noninteractive chroot $FILESYSTEM_ROOT apt-get -y in
     pciutils                \
     iptables-persistent     \
     ebtables                \
+    linux-sysctl-defaults   \
     logrotate               \
     curl                    \
     kexec-tools             \
@@ -502,23 +503,7 @@ set /files/lib/systemd/system/rsyslog.service/Service/ExecStart/arguments/1 -n
 
 sudo mkdir -p $FILESYSTEM_ROOT/var/core
 
-# Config sysctl
-sudo augtool --autosave "
-set /files/etc/sysctl.conf/kernel.core_pattern '|/usr/local/bin/coredump-compress %e %t %p %P'
-set /files/etc/sysctl.conf/kernel.softlockup_panic 1
-set /files/etc/sysctl.conf/kernel.panic 10
-set /files/etc/sysctl.conf/kernel.hung_task_timeout_secs 300
-set /files/etc/sysctl.conf/vm.panic_on_oom 2
-set /files/etc/sysctl.conf/fs.suid_dumpable 2
-" -r $FILESYSTEM_ROOT
-
-sysctl_net_cmd_string=""
-while read line; do
-  [[ "$line" =~ ^#.*$ ]] && continue
-  sysctl_net_conf_key=`echo $line | awk -F '=' '{print $1}'`
-  sysctl_net_conf_value=`echo $line | awk -F '=' '{print $2}'`
-  sysctl_net_cmd_string=$sysctl_net_cmd_string"set /files/etc/sysctl.conf/$sysctl_net_conf_key $sysctl_net_conf_value"$'\n'
-done < files/image_config/sysctl/sysctl-net.conf
+sudo cp files/image_config/sysctl/90-sonic.conf $FILESYSTEM_ROOT/usr/lib/sysctl.d/
 
 sudo augtool --autosave "$sysctl_net_cmd_string" -r $FILESYSTEM_ROOT
 
@@ -820,6 +805,8 @@ sudo mkdir -p $FILESYSTEM_ROOT/var/lib/docker
 ## Clear DNS configuration inherited from the build server
 sudo rm -f $FILESYSTEM_ROOT/etc/resolvconf/resolv.conf.d/original
 sudo cp files/image_config/resolv-config/resolv.conf.head $FILESYSTEM_ROOT/etc/resolvconf/resolv.conf.d/head
+sudo rm -f $FILESYSTEM_ROOT/etc/resolv.conf
+sudo touch $FILESYSTEM_ROOT/etc/resolv.conf
 
 ## Optimize filesystem size
 if [ "$BUILD_REDUCE_IMAGE_SIZE" = "y" ]; then
