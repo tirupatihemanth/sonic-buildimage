@@ -1,9 +1,9 @@
 #include <stdio.h>
+#include <string_view>
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
-// #include <stdbool.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <linux/limits.h>
@@ -11,6 +11,7 @@
 #include <string>
 #include <sstream>
 #include <filesystem>
+#include <format>
 #include <unordered_set>
 #include <fstream>
 #include <unordered_map>
@@ -41,7 +42,7 @@ void log_to_kmsg(const char* format, ...) {
     // Format the message
     char kmsg_buffer[1024];
     char *buffer_p;
-    buffer_p = stpncpy(kmsg_buffer, "<6>systemd-sonic-generator: ", sizeof(kmsg_buffer))
+    buffer_p = stpncpy(kmsg_buffer, "<6>systemd-sonic-generator: ", sizeof(kmsg_buffer));
     vsnprintf(buffer_p, sizeof(kmsg_buffer) - (buffer_p - kmsg_buffer), format, args);
     va_end(args);
     kmsg_buffer[1023] = '\0';
@@ -337,23 +338,12 @@ static int get_install_targets_from_line(std::string target_string, std::string 
     return num_targets;
 }
 
-static void replace_multi_inst_dep(const char *src) {
-    FILE *fp_src;
-    FILE *fp_tmp;
-    char buf[MAX_BUF_SIZE];
-    char* line = NULL;
+static void replace_multi_inst_dep(const std::filesystem::path& install_dir, const std::string& unit_file) {
+    std::ifstream fp_src;
+    std::ofstream fp_tmp;
+    std::string line;
     int i;
-    size_t len;
-    char *token;
-    char *word;
-    char *line_copy;
-    char *service_name;
-    char *type;
-    char *save_ptr1 = NULL;
-    char *save_ptr2 = NULL;
-    ssize_t nread;
     bool section_done = false;
-    char tmp_file_path[PATH_MAX];
 
     /* Assumes that the service files has 3 sections,
      * in the order: Unit, Service and Install.
@@ -363,114 +353,101 @@ static void replace_multi_inst_dep(const char *src) {
      * sections, replace if dependent on multi instance
      * service.
      */
-    fp_src = fopen(src, "r");
-    snprintf(tmp_file_path, PATH_MAX, "%s.tmp", src);
-    fp_tmp = fopen(tmp_file_path, "w");
+    fp_src = std::ifstream(get_unit_file_prefix() + unit_file);
+    std::filesystem::create_directory(install_dir / (unit_file + ".d"));
+    fp_tmp = std::ofstream(install_dir / (unit_file + ".d") / "multi-asic-dependencies.conf");
+    fp_tmp << "[Unit]\n";
+    fp_tmp << "Before=\n";
+    fp_tmp << "After=\n";
+    fp_tmp << "Requires=\n";
+    fp_tmp << "Wants=\n";
+    fp_tmp << "Requisite=\n";
+    fp_tmp << "WantedBy=\n";
 
-    while ((nread = getline(&line, &len, fp_src)) != -1 ) {
-        if ((strstr(line, "[Service]") != NULL) ||
-            (strstr(line, "[Timer]") != NULL)) {
+    while (std::getline(fp_src, line)) {
+        if (line.find("[Service]") != std::string::npos ||
+            line.find("[Timer]") != std::string::npos) {
             section_done = true;
-            fputs(line,fp_tmp);
-        } else if (strstr(line, "[Install]") != NULL) {
+        } else if (line.find("[Install]") != std::string::npos) {
             section_done = false;
-            fputs(line,fp_tmp);
-        } else if ((strstr(line, "[Unit]") != NULL) ||
-           (strstr(line, "Description") != NULL) ||
+        } else if (line.find("[Unit]") != std::string::npos ||
+           line.find("Description") != std::string::npos ||
            (section_done == true)) {
-            fputs(line,fp_tmp);
         } else {
-            line_copy = strdup(line);
-            token = strtok_r(line_copy, "=", &save_ptr1);
-            while ((word = strtok_r(NULL, " ", &save_ptr1))) {
-                if((strchr(word, '.') == NULL) ||
-                   (strchr(word, '@') != NULL)) {
-                    snprintf(buf, MAX_BUF_SIZE,"%s=%s\n",token, word);
-                    fputs(buf,fp_tmp);
+            const auto kv_split = line.find("=");
+            std::string_view line_view = line;
+            auto key = line_view.substr(0, kv_split);
+            if (key != "After" && key != "Before"
+                    && key != "Requires" && key != "Wants"
+                    && key != "Requisite" && key != "WantedBy") {
+                // Ignore keys that aren't going to need special handling for multi-instance
+                // services.
+                continue;
+            }
+            auto values = line_view.substr(kv_split + 1);
+            std::string_view value;
+            std::string_view::size_type value_idx = values.find(" ");
+            std::string_view::size_type old_value_idx = 0;
+            value = values.substr(0, value_idx);
+            do {
+                if (value.length() == 0) {
+                    old_value_idx = value_idx;
+                    value_idx = values.find(" ", old_value_idx + 1);
+                    value = values.substr(old_value_idx + 1, value_idx);
+                    continue;
+                }
+                if((value.find('.') == std::string_view::npos) ||
+                   (value.find('@') != std::string_view::npos)) {
+                    // If the value doesn't have a suffix, or it is already an instantiation
+                    // of a unit, ignore it
+                    fp_tmp << key << "=" << value << "\n";
                 } else {
-                    service_name = strdup(word);
-                    service_name = strtok_r(service_name, ".", &save_ptr2);
-                    type = strtok_r(NULL, "\n", &save_ptr2);
-                    if (num_asics > 1 &&  is_multi_instance_service(word)) {
+                    auto extension_idx = value.find(".");
+                    auto service_name = value.substr(0, extension_idx);
+                    auto type = value.substr(extension_idx + 1);
+                    if (num_asics > 1 && is_multi_instance_service(std::string(value))) {
                         for(i = 0; i < num_asics; i++) {
-                            snprintf(buf, MAX_BUF_SIZE, "%s=%s@%d.%s\n",
-                                    token, service_name, i, type);
-                            fputs(buf,fp_tmp);
-                        }
-                    } else if (smart_switch_npu && is_multi_instance_service_for_dpu(word)) {
+                            fp_tmp << key << "=" << service_name << "@" << i << "." << type << "\n";
+                         }
+                    } else if (smart_switch_npu && is_multi_instance_service_for_dpu(std::string(value))) {
                         for(i = 0; i < num_dpus; i++) {
-                            snprintf(buf, MAX_BUF_SIZE, "%s=%s@%s%d.%s\n",
-                                    token, service_name, DPU_PREFIX, i, type);
-                            fputs(buf,fp_tmp);
+                            fp_tmp << key << "=" << service_name << "@" << DPU_PREFIX << i << "." << type << "\n";
                         }
                     } else {
-                        snprintf(buf, MAX_BUF_SIZE,"%s=%s.%s\n",token, service_name, type);
-                        fputs(buf, fp_tmp);
+                        fp_tmp << key << "=" << service_name << "." << type << "\n";
                     }
-                    free(service_name);
                 }
-            }
-            free(line_copy);
+                old_value_idx = value_idx;
+                if (value_idx != std::string_view::npos) {
+                    value_idx = values.find(" ", old_value_idx + 1);
+                    value = values.substr(old_value_idx + 1, value_idx);
+                }
+            } while (old_value_idx != std::string_view::npos);
         }
     }
-    fclose(fp_src);
-    fclose(fp_tmp);
-    free(line);
-    /* remove the .service file, rename the .service.tmp file
-     * as .service.
-     */
-    remove(src);
-    rename(tmp_file_path, src);
 }
 
-static void update_environment(const std::string &src)
+static void update_environment(const std::filesystem::path& install_dir, const std::string &unit_file_name)
 {
-    std::ifstream src_file(src);
-    std::ofstream tmp_file(src + ".tmp");
-    bool has_service_section = false;
-    std::string line;
-
-    // locate the [Service] section
-    while (std::getline(src_file, line)) {
-        tmp_file << line << std::endl;
-        if (line.find("[Service]") != std::string::npos) {
-            has_service_section = true;
-            break;
-        }
+    if (!unit_file_name.ends_with(".service")) {
+        return;
     }
 
-    if (!has_service_section) {
-        tmp_file << "[Service]" << std::endl;
-    }
+    auto unit_override_dir = install_dir / (unit_file_name + ".d");
+    std::filesystem::create_directory(unit_override_dir);
+
+    auto unit_environment_file_path = unit_override_dir / "environment.conf";
+    std::ofstream unit_environment_file(unit_environment_file_path);
 
     std::unordered_map<std::string, std::string> env_vars;
     env_vars["IS_DPU_DEVICE"] = (smart_switch_dpu ? "true" : "false");
     env_vars["NUM_DPU"] = std::to_string(num_dpus);
 
     for (const auto& [key, value] : env_vars) {
-        tmp_file << "Environment=\"" << key << "=" << value << "\"" << std::endl;
+        unit_environment_file << "Environment=\"" << key << "=" << value << "\"" << std::endl;
     }
 
-    // copy the rest of the file
-    if (has_service_section) {
-        const static std::regex env_var_regex("Environment=\"?(\\w+)");
-        while (std::getline(src_file, line)) {
-            // skip the existing environment variables
-            std::smatch match;
-            if (std::regex_search(line, match, env_var_regex)) {
-                if (env_vars.find(match[1]) != env_vars.end()) {
-                    continue;
-                }
-            }
-            tmp_file << line << std::endl;
-        }
-    }
-
-    src_file.close();
-    tmp_file.close();
-    // remove the original file and rename the temporary file
-    remove(src.c_str());
-    rename((src + ".tmp").c_str(), src.c_str());
+    unit_environment_file.close();
 }
 
 int get_install_targets(std::string unit_file, char* targets[]) {
@@ -494,11 +471,6 @@ int get_install_targets(std::string unit_file, char* targets[]) {
     file_path = get_unit_file_prefix() + unit_file;
 
     instance_name = unit_file.substr(0, unit_file.find('.'));
-
-    if(((num_asics > 1) && (!is_multi_instance_service(instance_name)))
-        || ((num_dpus > 0) && (!is_multi_instance_service_for_dpu(instance_name)))) {
-        replace_multi_inst_dep(file_path.c_str());
-    }
 
     num_target_lines = get_target_lines(file_path.c_str(), target_lines);
     if (num_target_lines < 0) {
@@ -1047,25 +1019,17 @@ static int render_network_service_for_smart_switch(const std::filesystem::path& 
     }
 
     // Render Before instruction for midplane network with database service
-    if (num_dpus == 0) {
-        return 0;
-    }
-
-    std::string unit_path = std::string(get_unit_file_prefix()) + "/midplane-network-npu.service";
-    auto unit_override_dir = install_dir / "midplane-network-npu.service.d";
-    std::filesystem::create_directory(unit_override_dir);
-
-    auto unit_ordering_file_path = unit_override_dir / "ordering.conf";
-
-    std::ofstream unit_ordering_file;
-    unit_ordering_file.open(unit_ordering_file_path);
-    unit_ordering_file << "[Unit]";
-    unit_ordering_file << "\nBefore=";
     for (int i = 0; i < num_dpus; i++) {
-        unit_ordering_file << "database@dpu" << i << ".service";
-        if (i != num_dpus - 1) {
-            unit_ordering_file << " ";
-        }
+        auto unit_override_dir = install_dir / std::format("database@dpu{}.service.d", i);
+        std::filesystem::create_directory(unit_override_dir);
+
+        auto unit_ordering_file_path = unit_override_dir / "ordering.conf";
+
+        std::ofstream unit_ordering_file;
+        unit_ordering_file.open(unit_ordering_file_path);
+        unit_ordering_file << "[Unit]\n";
+        unit_ordering_file << "Requires=systemd-networkd-wait-online@bridge-midplane.service\n";
+        unit_ordering_file << "After=systemd-networkd-wait-online@bridge-midplane.service\n";
     }
 
     return 0;
@@ -1153,6 +1117,13 @@ int ssg_main(int argc, char **argv) {
             unit_instance = prefix + suffix;
         }
 
+        auto instance_name = unit_instance.substr(0, unit_instance.find('.'));
+
+        if(((num_asics > 1) && (!is_multi_instance_service(instance_name)))
+            || ((num_dpus > 0) && (!is_multi_instance_service_for_dpu(instance_name)))) {
+            replace_multi_inst_dep(install_dir, unit_instance);
+        }
+
         num_targets = get_install_targets(unit_instance, targets);
         if (num_targets < 0) {
             log_to_kmsg("Error parsing %s\n", unit_instance.c_str());
@@ -1167,7 +1138,7 @@ int ssg_main(int argc, char **argv) {
             free(targets[j]);
         }
 
-        update_environment(get_unit_file_prefix() + unit_instance);
+        update_environment(install_dir, unit_instance);
 
         free(unit_files[i]);
     }
