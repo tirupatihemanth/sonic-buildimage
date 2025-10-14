@@ -393,7 +393,7 @@ static void replace_multi_inst_dep(const std::filesystem::path& install_dir, con
                 if (value.length() == 0) {
                     old_value_idx = value_idx;
                     value_idx = values.find(" ", old_value_idx + 1);
-                    value = values.substr(old_value_idx + 1, value_idx);
+                    value = values.substr(old_value_idx + 1, value_idx - old_value_idx - 1);
                     continue;
                 }
                 if((value.find('.') == std::string_view::npos) ||
@@ -420,7 +420,7 @@ static void replace_multi_inst_dep(const std::filesystem::path& install_dir, con
                 old_value_idx = value_idx;
                 if (value_idx != std::string_view::npos) {
                     value_idx = values.find(" ", old_value_idx + 1);
-                    value = values.substr(old_value_idx + 1, value_idx);
+                    value = values.substr(old_value_idx + 1, value_idx - old_value_idx - 1);
                 }
             } while (old_value_idx != std::string_view::npos);
         }
@@ -442,6 +442,8 @@ static void update_environment(const std::filesystem::path& install_dir, const s
     std::unordered_map<std::string, std::string> env_vars;
     env_vars["IS_DPU_DEVICE"] = (smart_switch_dpu ? "true" : "false");
     env_vars["NUM_DPU"] = std::to_string(num_dpus);
+
+    unit_environment_file << "[Service]\n";
 
     for (const auto& [key, value] : env_vars) {
         unit_environment_file << "Environment=\"" << key << "=" << value << "\"" << std::endl;
@@ -949,70 +951,6 @@ static int get_num_of_dpu() {
 }
 
 
-/**
- * Installs the network service.
- * 
- * This function installs the network service by creating a symlink
- * to the network service file in the appropriate directory.
- * 
- * @param unit_name The name of the network unit to install.
- * @return 0 if the network unit is installed successfully, or -1 if an error occurs.
- */
-static int install_network_unit(std::string unit_name, const std::filesystem::path& install_dir) {
-    if (unit_name.empty()) {
-        log_to_kmsg("Invalid network unit\n");
-        exit(EXIT_FAILURE);
-    }
-
-    std::string unit_type = unit_name.substr(unit_name.find(".") + 1);
-    if (unit_type.empty()) {
-        log_to_kmsg("Invalid network unit %s\n", unit_name.c_str());
-        return -1;
-    }
-
-    std::string install_path;
-    std::string original_path;
-    std::string subdir = "/network/";
-    if (unit_type != "netdev" && unit_type != "network") {
-        log_to_kmsg("Invalid network unit %s\n", unit_type.c_str());
-        return -1;
-    }
-
-    install_path = get_etc_systemd() + subdir + unit_name;
-    original_path = get_lib_systemd() + subdir + unit_name;
-
-    struct stat st;
-
-    if (stat(install_path.c_str(), &st) == 0) {
-        // If the file already exists, remove it
-        if (S_ISDIR(st.st_mode)) {
-            log_to_kmsg("Error: %s is a directory\n", install_path.c_str());
-            return -1;
-        }
-        if (remove(install_path.c_str()) != 0) {
-            log_to_kmsg("Error removing existing file %s\n", install_path.c_str());
-            return -1;
-        }
-    }
-
-    if (is_devnull(install_path.c_str())) {
-        if (remove(install_path.c_str()) != 0) {
-            log_to_kmsg("Unable to remove existing symlink %s\n", install_path.c_str());
-            return -1;
-        }
-    }
-
-    if (symlink(original_path.c_str(), install_path.c_str()) != 0) {
-        if (errno == EEXIST)
-            return 0;
-        log_to_kmsg("Error creating symlink %s -> %s (%s)\n", install_path.c_str(), original_path.c_str(), strerror(errno));
-        return -1;
-    }
-
-    return 0;
-}
-
-
 static int render_network_service_for_smart_switch(const std::filesystem::path& install_dir) {
     if (!smart_switch_npu) {
         return 0;
@@ -1030,35 +968,6 @@ static int render_network_service_for_smart_switch(const std::filesystem::path& 
         unit_ordering_file << "[Unit]\n";
         unit_ordering_file << "Requires=systemd-networkd-wait-online@bridge-midplane.service\n";
         unit_ordering_file << "After=systemd-networkd-wait-online@bridge-midplane.service\n";
-    }
-
-    return 0;
-}
-
-
-static int install_network_service_for_smart_switch(const std::filesystem::path& install_dir) {
-    const char** network_units = NULL;
-    if (smart_switch_npu) {
-        static const char* npu_network_units[] = {
-            "bridge-midplane.netdev",
-            "dummy-midplane.netdev",
-            NULL
-        };
-        network_units = npu_network_units;
-    } else if (smart_switch_dpu) {
-    } else {
-        return -1;
-    }
-
-    if (network_units == NULL) {
-        return 0;
-    }
-
-    while(*network_units) {
-        if (install_network_unit(*network_units, install_dir) != 0) {
-            return -1;
-        }
-        network_units++;
     }
 
     return 0;
@@ -1098,9 +1007,6 @@ int ssg_main(int argc, char **argv) {
     // Install and render midplane network service for smart switch
     if (smart_switch) {
         if (render_network_service_for_smart_switch(install_dir) != 0) {
-            return -1;
-        }
-        if (install_network_service_for_smart_switch(install_dir) != 0) {
             return -1;
         }
     }

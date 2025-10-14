@@ -364,8 +364,6 @@ class SsgMainTest : public SsgFunctionTest {
             test_target, true, cfg.num_asics);
         validate_output_unit_files(npu_service_list,
             test_target, cfg.is_smart_switch_npu, cfg.num_dpus);
-        validate_output_unit_files(npu_network_service_list,
-            "network", cfg.is_smart_switch_npu, cfg.num_dpus);
         validate_output_unit_files(dpu_service_list,
             test_target, cfg.is_smart_switch_dpu, cfg.num_dpus);
         validate_output_unit_files(dpu_network_service_list,
@@ -482,12 +480,6 @@ class SsgMainTest : public SsgFunctionTest {
     /* Save global variables before running tests */
     virtual void SetUp() {
         SsgFunctionTest::SetUp();
-        // Create /dev/null symlink for simulation disabled service
-        std::vector<std::string> disabled_service;
-        disabled_service.insert(disabled_service.end(), npu_network_service_list.begin(), npu_network_service_list.end());
-        for (const auto &service : disabled_service) {
-            fs::create_symlink("/dev/null", TEST_ETC_NETWORK + service);
-        }
     }
 
     /* Restore global vars */
@@ -503,7 +495,6 @@ class SsgMainTest : public SsgFunctionTest {
     static const std::vector<std::string> non_smart_switch_service_list;
     static const std::vector<std::string> npu_service_list;
     static const std::vector<std::string> npu_service_list_for_environment_variables;
-    static const std::vector<std::string> npu_network_service_list;
     static const std::vector<std::string> dpu_service_list;
     static const std::vector<std::string> dpu_network_service_list;
     static const std::vector<std::string> single_asic_dependency_list;
@@ -561,13 +552,6 @@ SsgMainTest::npu_service_list = {
 const std::vector<std::string>
 SsgMainTest::npu_service_list_for_environment_variables = {
     "database@%1%.service",
-};
-
-/* Systemd service Unit file list for Smart Switch NPU. */
-const std::vector<std::string>
-SsgMainTest::npu_network_service_list = {
-    "bridge-midplane.netdev",
-    "dummy-midplane.netdev",
 };
 
 /* Systemd service Unit file list for Smart Switch DPU. */

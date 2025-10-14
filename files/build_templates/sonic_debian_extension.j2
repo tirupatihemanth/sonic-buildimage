@@ -667,10 +667,11 @@ sudo cp $IMAGE_CONFIGS/config-chassisdb/config-chassisdb $FILESYSTEM_ROOT/usr/bi
 echo "config-chassisdb.service" | sudo tee -a $GENERATED_SERVICE_FILE
 sudo LANG=C chroot $FILESYSTEM_ROOT systemctl enable config-chassisdb.service
 
-# Copy basic script to check for NPU or DPU
+# Copy basic script to handle NPU/DPU-specific things that cannot otherwise be handled
 # Note: Intentionally not setting executable bit because users generally won't
-# need to manually run this script.
-sudo cp $IMAGE_CONFIGS/midplane-network/is_npu_or_dpu.sh $FILESYSTEM_ROOT/usr/local/bin/
+# need to manually run these scripts.
+sudo cp $IMAGE_CONFIGS/midplane-network/is-npu-or-dpu.sh $FILESYSTEM_ROOT/usr/local/bin/
+sudo cp $IMAGE_CONFIGS/midplane-network/define-npu-specific-netdevs.sh $FILESYSTEM_ROOT/usr/local/bin/
 
 # Copy midplane network service file for smart switch
 sudo cp $IMAGE_CONFIGS/midplane-network/bridge-midplane.netdev $FILESYSTEM_ROOT_USR_LIB_SYSTEMD_NETWORK/bridge-midplane.netdev
@@ -1209,3 +1210,5 @@ sudo touch $FILESYSTEM_ROOT_ETC_SONIC/enable_multidb
 
 # Install syslog counter plugin
 install_deb_package $debs_path/syslog-counter_*.deb
+
+
