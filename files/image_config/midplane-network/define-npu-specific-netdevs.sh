@@ -3,6 +3,6 @@
 set -e
 
 if /bin/bash /usr/local/bin/is-npu-or-dpu.sh -n; then
-    cp /usr/share/sonic/templates/bridge-midplane.netdev /etc/systemd/network/
-    cp /usr/share/sonic/templates/dummy-midplane.netdev /etc/systemd/network/
+    ln -sf /usr/lib/systemd/network/bridge-midplane.netdev /etc/systemd/network/bridge-midplane.netdev
+    ln -sf /usr/lib/systemd/network/dummy-midplane.netdev  /etc/systemd/network/dummy-midplane.netdev
 fi
