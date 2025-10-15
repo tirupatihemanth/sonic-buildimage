@@ -25,11 +25,11 @@ HAS_NPU=0
 
 if [[ -f /usr/share/sonic/device/${PLATFORM}/platform.json ]]; then
     if jq -e '.DPUS' /usr/share/sonic/device/${PLATFORM}/platform.json >/dev/null; then
-        HAS_DPU=1
+        HAS_NPU=1
     fi
 
     if jq -e '.DPU' /usr/share/sonic/device/${PLATFORM}/platform.json >/dev/null; then
-        HAS_NPU=1
+        HAS_DPU=1
     fi
 fi
 
