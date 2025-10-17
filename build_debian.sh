@@ -74,11 +74,6 @@ mkdir -p $FILESYSTEM_ROOT
 mkdir -p $FILESYSTEM_ROOT/$PLATFORM_DIR
 touch $FILESYSTEM_ROOT/$PLATFORM_DIR/firsttime
 
-bootloader_packages=""
-if [ "$TARGET_BOOTLOADER" != "aboot" ]; then
-    mkdir -p $FILESYSTEM_ROOT/$PLATFORM_DIR/grub
-    bootloader_packages="grub2-common"
-fi
 
 ## ensure proc is mounted
 sudo mount proc /proc -t proc || true
@@ -347,7 +342,6 @@ sudo LANG=C DEBIAN_FRONTEND=noninteractive chroot $FILESYSTEM_ROOT apt-get -y in
     sysfsutils              \
     e2fsprogs               \
     squashfs-tools          \
-    $bootloader_packages    \
     rsyslog                 \
     screen                  \
     hping3                  \
@@ -380,6 +374,20 @@ sudo LANG=C DEBIAN_FRONTEND=noninteractive chroot $FILESYSTEM_ROOT apt-get -y in
     ethtool                 \
     zstd                    \
     nvme-cli
+
+# Install locally built grub packages (patched) if available
+if [ "$TARGET_BOOTLOADER" != "aboot" ]; then
+
+    # Copy all locally built grub debs into chroot and install them
+    if ls $debs_path/grub*.deb >/dev/null 2>&1; then
+        sudo cp $debs_path/grub*.deb $FILESYSTEM_ROOT/
+        basename_grub_debs=$(cd $FILESYSTEM_ROOT && ls grub*.deb 2>/dev/null | sed 's,^,./,') || true
+        if [ -n "$basename_grub_debs" ]; then
+            sudo LANG=C DEBIAN_FRONTEND=noninteractive chroot $FILESYSTEM_ROOT apt -y install $basename_grub_debs || true
+            ( cd $FILESYSTEM_ROOT; sudo rm -f grub*.deb )
+        fi
+    fi
+fi
 
 sudo cp files/initramfs-tools/pzstd $FILESYSTEM_ROOT/etc/initramfs-tools/hooks/pzstd
 sudo chmod +x $FILESYSTEM_ROOT/etc/initramfs-tools/hooks/pzstd
@@ -446,10 +454,11 @@ if [[ $TARGET_BOOTLOADER == grub ]]; then
         GRUB_PKG=grub-efi-arm64-bin
     fi
 
-    sudo LANG=C DEBIAN_FRONTEND=noninteractive chroot $FILESYSTEM_ROOT apt-get install -d -o dir::cache=/var/cache/apt \
-        $GRUB_PKG
-
-    sudo cp $FILESYSTEM_ROOT/var/cache/apt/archives/grub*.deb $FILESYSTEM_ROOT/$PLATFORM_DIR/grub
+    # Stage our locally built grub binary package for first boot install
+    if ls $debs_path/${GRUB_PKG}_*_${CONFIGURED_ARCH}.deb >/dev/null 2>&1; then
+        mkdir -p $FILESYSTEM_ROOT/$PLATFORM_DIR/grub
+        sudo cp $debs_path/${GRUB_PKG}_*_${CONFIGURED_ARCH}.deb $FILESYSTEM_ROOT/$PLATFORM_DIR/grub/
+    fi
 fi
 
 ## Disable kexec supported reboot which was installed by default
@@ -668,8 +677,16 @@ if [[ $SECURE_UPGRADE_MODE == 'dev' || $SECURE_UPGRADE_MODE == "prod" ]]; then
 
     # debian secure boot dependecies
     sudo LANG=C DEBIAN_FRONTEND=noninteractive chroot $FILESYSTEM_ROOT apt-get -y install      \
-        shim-unsigned \
-        grub-efi
+        shim-unsigned
+    # Ensure our patched grub EFI packages are installed (if not already)
+    if ls $debs_path/grub-efi*_${CONFIGURED_ARCH}.deb >/dev/null 2>&1 || ls $debs_path/grub2-common_*_${CONFIGURED_ARCH}.deb >/dev/null 2>&1; then
+        sudo cp $debs_path/grub*.deb $FILESYSTEM_ROOT/
+        basename_grub_debs=$(cd $FILESYSTEM_ROOT && ls grub*.deb 2>/dev/null | sed 's,^,./,') || true
+        if [ -n "$basename_grub_debs" ]; then
+            sudo LANG=C DEBIAN_FRONTEND=noninteractive chroot $FILESYSTEM_ROOT apt -y install $basename_grub_debs || true
+            ( cd $FILESYSTEM_ROOT; sudo rm -f grub*.deb )
+        fi
+    fi
 
     if [ ! -f $SECURE_UPGRADE_SIGNING_CERT ]; then
         echo "Error: SONiC SECURE_UPGRADE_SIGNING_CERT=$SECURE_UPGRADE_SIGNING_CERT key missing"

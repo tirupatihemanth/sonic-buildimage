@@ -1,0 +1,41 @@
+From e0ad18658a06d6428e7f2728eec03d63dfed5527 Mon Sep 17 00:00:00 2001
+From: Hemanth Kumar Tirupati <htirupati@nvidia.com>
+Date: Thu, 16 Oct 2025 07:15:44 +0000
+Subject: [PATCH] Add linuxefi and initrdefi command support
+
+---
+ grub-core/loader/efi/linux.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/grub-core/loader/efi/linux.c b/grub-core/loader/efi/linux.c
+index bfbd95aee..b60879d98 100644
+--- a/grub-core/loader/efi/linux.c
++++ b/grub-core/loader/efi/linux.c
+@@ -576,6 +576,7 @@ fail:
+ 
+ 
+ static grub_command_t cmd_linux, cmd_initrd;
++static grub_command_t cmd_linuxefi, cmd_initrdefi;
+ 
+ GRUB_MOD_INIT (linux)
+ {
+@@ -583,6 +584,9 @@ GRUB_MOD_INIT (linux)
+ 				     N_("Load Linux."));
+   cmd_initrd = grub_register_command ("initrd", grub_cmd_initrd, 0,
+ 				      N_("Load initrd."));
++
++  cmd_linuxefi = grub_register_command("linuxefi", grub_cmd_linux, 0, N_("Load Linux."));
++  cmd_initrdefi = grub_register_command("initrdefi", grub_cmd_initrd, 0, N_("Load initrd."));
+   my_mod = mod;
+ }
+ 
+@@ -590,4 +594,6 @@ GRUB_MOD_FINI (linux)
+ {
+   grub_unregister_command (cmd_linux);
+   grub_unregister_command (cmd_initrd);
++  grub_unregister_command (cmd_linuxefi);
++  grub_unregister_command (cmd_initrdefi);
+ }
+-- 
+2.50.1
+

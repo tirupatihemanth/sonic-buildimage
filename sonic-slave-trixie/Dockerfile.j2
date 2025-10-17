@@ -605,6 +605,9 @@ RUN eatmydata apt-get install -y xsltproc
 # Install dependencies for isc-dhcp-relay build
 RUN eatmydata apt-get -y build-dep isc-dhcp
 
+# Install dependencies for grub2
+RUN eatmydata apt-get -y build-dep grub2
+
 # Install vim
 RUN eatmydata apt-get install -y vim
 
