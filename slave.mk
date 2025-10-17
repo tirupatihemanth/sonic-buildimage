@@ -1342,6 +1342,7 @@ $(addprefix $(TARGET_PATH)/, $(SONIC_RFS_TARGETS)) : $(TARGET_PATH)/% : \
         .platform \
         build_debian.sh \
         $(addprefix $(IMAGE_DISTRO_DEBS_PATH)/,$(INITRAMFS_TOOLS) $(LINUX_KERNEL)) \
+        $(addprefix $(IMAGE_DISTRO_DEBS_PATH)/,$(GRUB_DEBS)) \
         $$(addprefix $(TARGET_PATH)/,$$($$*_DEPENDENT_RFS)) \
         $(call dpkg_depend,$(TARGET_PATH)/%.dep)
 	$(HEADER)
