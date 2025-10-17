@@ -1,0 +1,25 @@
+From 308165dd8ec1f982cb519b55752399ee08b1ecf8 Mon Sep 17 00:00:00 2001
+From: root <root@s-build-sonic-01.mts.labs.mlnx>
+Date: Fri, 17 Oct 2025 03:52:43 +0000
+Subject: [PATCH] Remove p option to dh_auto_build
+
+---
+ debian/rules | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/debian/rules b/debian/rules
+index 7a9414f..fe021ff 100755
+--- a/debian/rules
++++ b/debian/rules
+@@ -177,7 +177,7 @@ debian/stamps/configure-%: package = $(subst debian/stamps/configure-,,$@)
+ debian/stamps/configure-%: export DH_OPTIONS = -p$(package) -Bobj/$(package)
+ 
+ debian/stamps/build-%: package = $(subst debian/stamps/build-,,$@)
+-debian/stamps/build-%: export DH_OPTIONS = -p$(package) -Bobj/$(package)
++debian/stamps/build-%: export DH_OPTIONS = -Bobj/$(package)
+ 
+ install/%: package = $(subst install/,,$@)
+ install/%: package_bin = $(package)-bin
+-- 
+2.50.1
+
