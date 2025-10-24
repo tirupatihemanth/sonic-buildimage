@@ -6,10 +6,11 @@ KERNEL_SUBVERSION = 1
 KERNEL_FEATURESET = sonic
 # Note: KVERSION_SHORT is used by Arista
 KVERSION_SHORT := $(KERNEL_VERSION)$(KERNEL_ABISUFFIX)-$(KERNEL_FEATURESET)
-KVERSION ?= $(KVERSION_SHORT)-$(CONFIGURED_ARCH)
 ifeq ($(CONFIGURED_ARCH), armhf)
 # Override kernel version for ARMHF as it uses arm MP (multi-platform) for short version
 KVERSION ?= $(KVERSION_SHORT)-armmp
+else
+KVERSION ?= $(KVERSION_SHORT)-$(CONFIGURED_ARCH)
 endif
 
 # Place an URL here to .tar.gz file if you want to include those patches
