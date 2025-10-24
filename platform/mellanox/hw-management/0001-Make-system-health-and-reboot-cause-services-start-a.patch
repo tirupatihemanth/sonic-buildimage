@@ -1,0 +1,25 @@
+From 80ba20c67d4b5196c66c08bc588ba6f987ff20ff Mon Sep 17 00:00:00 2001
+From: htirupati <htirupati@contoso.com>
+Date: Fri, 24 Oct 2025 18:49:49 +0000
+Subject: [PATCH] Make system-health and reboot-cause services start after
+ hw-mgmt service
+
+---
+ debian/hw-management.hw-management.service | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/debian/hw-management.hw-management.service b/debian/hw-management.hw-management.service
+index bdc79d2e..634b4014 100755
+--- a/debian/hw-management.hw-management.service
++++ b/debian/hw-management.hw-management.service
+@@ -4,6 +4,7 @@ Documentation=man:hw-management.service(8)
+ Wants=hw-management-sync.service
+ Wants=hw-management-sysfs-monitor.service
+ Wants=hw-management-fast-sysfs-monitor.service
++Before=determine-reboot-cause.service system-health.service watchdog-control.service
+
+ [Service]
+ Type=oneshot
+--
+2.47.3
+
