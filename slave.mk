@@ -1392,8 +1392,6 @@ $(addprefix $(TARGET_PATH)/, $(SONIC_RFS_TARGETS)) : $(TARGET_PATH)/% : \
 
 # targets for building installers with base image
 # TODO(trixie): Enable the following when ready:
-#                $(LIBPAM_RADIUS) \
-#                $(LIBNSS_RADIUS) \
 #                $(OPENSSH_SERVER) \
 #
 $(addprefix $(TARGET_PATH)/, $(SONIC_INSTALLERS)) : $(TARGET_PATH)/% : \
@@ -1411,6 +1409,8 @@ $(addprefix $(TARGET_PATH)/, $(SONIC_INSTALLERS)) : $(TARGET_PATH)/% : \
                 $(SONIC_DEVICE_DATA) \
                 $(IFUPDOWN2) \
                 $(KDUMP_TOOLS) \
+                $(LIBPAM_RADIUS) \
+                $(LIBNSS_RADIUS) \
                 $(LIBPAM_TACPLUS) \
                 $(LIBNSS_TACPLUS) \
                 $(MONIT) \
