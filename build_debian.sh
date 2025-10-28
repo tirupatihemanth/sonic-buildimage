@@ -364,7 +364,7 @@ sudo LANG=C DEBIAN_FRONTEND=noninteractive chroot $FILESYSTEM_ROOT apt-get -y in
     python3-pip             \
     python-is-python3       \
     cron                    \
-    libprotobuf32           \
+    libprotobuf32t64        \
     libgrpc29t64            \
     libgrpc++1.51t64        \
     haveged                 \
@@ -724,10 +724,10 @@ fi
 sudo chroot $FILESYSTEM_ROOT update-initramfs -u
 ## Convert initrd image to u-boot format
 if [[ $TARGET_BOOTLOADER == uboot ]]; then
-    INITRD_FILE=initrd.img-${LINUX_KERNEL_VERSION}-${CONFIGURED_ARCH}
-    KERNEL_FILE=vmlinuz-${LINUX_KERNEL_VERSION}-${CONFIGURED_ARCH}
+    INITRD_FILE=initrd.img-${LINUX_KERNEL_VERSION}+deb13-sonic-${CONFIGURED_ARCH}
+    KERNEL_FILE=vmlinuz-${LINUX_KERNEL_VERSION}+deb13-sonic-${CONFIGURED_ARCH}
     if [[ $CONFIGURED_ARCH == armhf ]]; then
-        INITRD_FILE=initrd.img-${LINUX_KERNEL_VERSION}-armmp
+        INITRD_FILE=initrd.img-${LINUX_KERNEL_VERSION}+deb13-sonic-armmp
         sudo LANG=C chroot $FILESYSTEM_ROOT mkimage -A arm -O linux -T ramdisk -C gzip -d /boot/$INITRD_FILE /boot/u${INITRD_FILE}
         ## Overwriting the initrd image with uInitrd
         sudo LANG=C chroot $FILESYSTEM_ROOT mv /boot/u${INITRD_FILE} /boot/$INITRD_FILE
