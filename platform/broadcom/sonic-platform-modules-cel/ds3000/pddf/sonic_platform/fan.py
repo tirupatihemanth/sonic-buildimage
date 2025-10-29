@@ -158,7 +158,7 @@ class Fan(PddfFan):
             print("Setting fan speed is not allowed !")
             return False
 
-        if(self.plugin_data['FAN']['duty_cycle_to_pwm'].isnumeric())
+        if(self.plugin_data['FAN']['duty_cycle_to_pwm'].isnumeric()):
             duty_cycle_to_pwm = int(self.plugin_data['FAN']['duty_cycle_to_pwm'])
         else:
             return False
