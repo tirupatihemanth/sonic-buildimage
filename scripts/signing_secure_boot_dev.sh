@@ -100,7 +100,7 @@ done
 ## vmlinuz signing
 ######################
 
-CURR_VMLINUZ=$FS_ROOT/boot/vmlinuz-${LINUX_KERNEL_VERSION}-${CONFIGURED_ARCH}
+CURR_VMLINUZ=$FS_ROOT/boot/vmlinuz-${LINUX_KERNEL_VERSION}+deb13-sonic-${CONFIGURED_ARCH}
 
 # clean old files
 clean_file ${CURR_VMLINUZ}-signed
