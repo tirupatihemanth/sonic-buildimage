@@ -674,9 +674,9 @@ sudo cp $IMAGE_CONFIGS/midplane-network/is-npu-or-dpu.sh $FILESYSTEM_ROOT/usr/lo
 sudo cp $IMAGE_CONFIGS/midplane-network/define-npu-specific-netdevs.sh $FILESYSTEM_ROOT/usr/local/bin/
 
 # Copy midplane network service file for smart switch
-sudo cp $IMAGE_CONFIGS/midplane-network/bridge-midplane.netdev $FILESYSTEM_ROOT_USR_LIB_SYSTEMD_NETWORK/bridge-midplane.netdev
+sudo cp $IMAGE_CONFIGS/midplane-network/bridge-midplane.netdev $FILESYSTEM_ROOT/usr/share/sonic/templates/bridge-midplane.netdev
 sudo cp $IMAGE_CONFIGS/midplane-network/bridge-midplane.network $FILESYSTEM_ROOT_USR_LIB_SYSTEMD_NETWORK/bridge-midplane.network
-sudo cp $IMAGE_CONFIGS/midplane-network/dummy-midplane.netdev $FILESYSTEM_ROOT_USR_LIB_SYSTEMD_NETWORK/dummy-midplane.netdev
+sudo cp $IMAGE_CONFIGS/midplane-network/dummy-midplane.netdev $FILESYSTEM_ROOT/usr/share/sonic/templates/dummy-midplane.netdev
 sudo cp $IMAGE_CONFIGS/midplane-network/dummy-midplane.network $FILESYSTEM_ROOT_USR_LIB_SYSTEMD_NETWORK/dummy-midplane.network
 sudo cp $IMAGE_CONFIGS/midplane-network/midplane-network-npu.network $FILESYSTEM_ROOT_USR_LIB_SYSTEMD_NETWORK/midplane-network-npu.network
 sudo cp $IMAGE_CONFIGS/midplane-network/midplane-network-dpu.network $FILESYSTEM_ROOT_USR_LIB_SYSTEMD_NETWORK/midplane-network-dpu.network
