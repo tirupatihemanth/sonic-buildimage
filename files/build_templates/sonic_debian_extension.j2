@@ -242,8 +242,7 @@ install_pip_package {{sonic_utilities_py3_wheel_path}}
 install_deb_package $debs_path/sonic-utilities-data_*.deb
 
 # Install customized bash version to patch bash plugin support.
-# TODO(trixie): Fix bash compilation
-#install_deb_package $debs_path/bash_*.deb
+install_deb_package $debs_path/bash_*.deb
 
 # sonic-utilities-data installs bash-completion as a dependency. However, it is disabled by default
 # in bash.bashrc, so we copy a version of the file with it enabled here.
@@ -323,9 +322,8 @@ sudo LANG=C chroot $FILESYSTEM_ROOT pam-auth-update --remove tacplus ldap
 sudo sed -i -e '/^passwd/s/ tacplus//' $FILESYSTEM_ROOT/etc/nsswitch.conf
 
 # Install pam-radius-auth and nss-radius
-# TODO(trixie): Fix compilation
-#install_deb_package $debs_path/libpam-radius-auth_*.deb
-#install_deb_package $debs_path/libnss-radius_*.deb
+install_deb_package $debs_path/libpam-radius-auth_*.deb
+install_deb_package $debs_path/libnss-radius_*.deb
 # Disable radius by default
 # radius does not have any profiles
 #sudo LANG=C chroot $FILESYSTEM_ROOT pam-auth-update --remove radius tacplus
