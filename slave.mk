@@ -1392,8 +1392,6 @@ $(addprefix $(TARGET_PATH)/, $(SONIC_RFS_TARGETS)) : $(TARGET_PATH)/% : \
 	$(FOOTER)
 
 # targets for building installers with base image
-# TODO(trixie): Enable the following when ready:
-#                $(OPENSSH_SERVER) \
 #
 $(addprefix $(TARGET_PATH)/, $(SONIC_INSTALLERS)) : $(TARGET_PATH)/% : \
         .platform \
@@ -1416,6 +1414,7 @@ $(addprefix $(TARGET_PATH)/, $(SONIC_INSTALLERS)) : $(TARGET_PATH)/% : \
                 $(LIBPAM_TACPLUS) \
                 $(LIBNSS_TACPLUS) \
                 $(MONIT) \
+                $(OPENSSH_SERVER) \
                 $(PYTHON3_SWSSCOMMON) \
                 $(SONIC_DB_CLI) \
                 $(SONIC_NETTOOLS) \
