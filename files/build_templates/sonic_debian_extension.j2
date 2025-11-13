@@ -813,6 +813,11 @@ sudo LANG=C chroot $FILESYSTEM_ROOT systemctl enable fstrim.timer
 ## copy platform rc.local
 sudo cp $IMAGE_CONFIGS/platform/rc.local $FILESYSTEM_ROOT/etc/
 
+## Remove network-online.target dependency from rc-local.service debian.conf
+if [ -f $FILESYSTEM_ROOT/usr/lib/systemd/system/rc-local.service.d/debian.conf ]; then
+    sudo sed -i '/^After=network-online.target/d' $FILESYSTEM_ROOT/usr/lib/systemd/system/rc-local.service.d/debian.conf
+fi
+
 ## copy blacklist file
 sudo cp $IMAGE_CONFIGS/platform/linux_kernel_bde.conf $FILESYSTEM_ROOT/etc/modprobe.d/
 
