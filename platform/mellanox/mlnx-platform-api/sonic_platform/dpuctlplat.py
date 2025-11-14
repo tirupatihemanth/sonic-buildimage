@@ -42,7 +42,7 @@ PCI_DEV_BASE = os.path.join(PCI_BASE, "devices/")
 logger = SysLogger()
 
 WAIT_FOR_SHTDN = 120
-WAIT_FOR_DPU_READY = 180
+WAIT_FOR_DPU_READY = 360
 
 
 class OperationType(Enum):
