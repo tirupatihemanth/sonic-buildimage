@@ -318,14 +318,14 @@ def test_service_checker_no_critical_process(mock_get_table, mock_docker_client)
 @patch('health_checker.service_checker.ServiceChecker.check_services', MagicMock())
 @patch('health_checker.utils.run_command')
 def test_service_checker_check_by_monit(mock_run):
-    return_value = 'Monit 5.20.0 uptime: 3h 54m\n' \
+    return_value = 'Monit 5.34.3 uptime: 3h 54m\n' \
                    'Service Name                     Status                      Type\n' \
-                   'sonic                            Running                     System\n' \
-                   'sonic1                           Not running                 System\n' \
-                   'telemetry                        Does not exist              Process\n' \
-                   'orchagent                        Running                     Process\n' \
-                   'root-overlay                     Accessible                  Filesystem\n' \
-                   'var-log                          Is not accessible           Filesystem\n'
+                   'sonic                            OK                          System\n' \
+                   'sonic1                           Not OK                      System\n' \
+                   'telemetry                        Not OK                      Process\n' \
+                   'orchagent                        OK                          Process\n' \
+                   'root-overlay                     OK                          Filesystem\n' \
+                   'var-log                          Not OK                      Filesystem\n'
     mock_run.side_effect = ['active', return_value]
     checker = ServiceChecker()
     config = Config()
