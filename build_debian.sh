@@ -166,7 +166,7 @@ fi
 cat files/initramfs-tools/modules | sudo tee -a $FILESYSTEM_ROOT/etc/initramfs-tools/modules > /dev/null
 
 ## Install kbuild for sign-file into docker image (not fsroot)
-sudo LANG=C DEBIAN_FRONTEND=noninteractive apt -y install ./$debs_path/linux-kbuild-${LINUX_KERNEL_VERSION}*_${CONFIGURED_ARCH}.deb
+sudo LANG=C DEBIAN_FRONTEND=noninteractive apt -y --allow-downgrades install ./$debs_path/linux-kbuild-${LINUX_KERNEL_VERSION}*_${CONFIGURED_ARCH}.deb
 
 ## Hook into initramfs: change fs type from vfat to ext4 on arista switches
 sudo mkdir -p $FILESYSTEM_ROOT/etc/initramfs-tools/scripts/init-premount/
