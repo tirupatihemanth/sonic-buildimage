@@ -353,77 +353,92 @@ static void replace_multi_inst_dep(const std::filesystem::path& install_dir, con
      * sections, replace if dependent on multi instance
      * service.
      */
-    fp_src = std::ifstream(get_unit_file_prefix() + unit_file);
-    std::filesystem::create_directory(install_dir / (unit_file + ".d"));
-    fp_tmp = std::ofstream(install_dir / (unit_file + ".d") / "multi-asic-dependencies.conf");
-    fp_tmp << "[Unit]\n";
-    fp_tmp << "Before=\n";
-    fp_tmp << "After=\n";
-    fp_tmp << "Requires=\n";
-    fp_tmp << "Wants=\n";
-    fp_tmp << "Requisite=\n";
+    {
+        fp_src = std::ifstream(get_unit_file_prefix() + unit_file);
+        fp_tmp = std::ofstream(install_dir / unit_file);
 
-    while (std::getline(fp_src, line)) {
-        if (line.find("[Service]") != std::string::npos ||
-            line.find("[Timer]") != std::string::npos) {
-            section_done = true;
-        } else if (line.find("[Install]") != std::string::npos) {
-            section_done = false;
-            fp_tmp << "[Install]\n";
-            fp_tmp << "WantedBy=\n";
-        } else if (line.find("[Unit]") != std::string::npos ||
-           line.find("Description") != std::string::npos ||
-           (section_done == true)) {
-        } else {
+        while (std::getline(fp_src, line)) {
             const auto kv_split = line.find("=");
             std::string_view line_view = line;
             auto key = line_view.substr(0, kv_split);
+            // Ignore all dependency-related keys for later handling
             if (key != "After" && key != "Before"
                     && key != "Requires" && key != "Wants"
                     && key != "Requisite" && key != "WantedBy") {
-                // Ignore keys that aren't going to need special handling for multi-instance
-                // services.
-                continue;
+                fp_tmp << line << "\n";
             }
-            auto values = line_view.substr(kv_split + 1);
-            std::string_view value;
-            std::string_view::size_type value_idx = values.find(" ");
-            std::string_view::size_type old_value_idx = 0;
-            value = values.substr(0, value_idx);
-            do {
-                if (value.length() == 0) {
-                    old_value_idx = value_idx;
-                    value_idx = values.find(" ", old_value_idx + 1);
-                    value = values.substr(old_value_idx + 1, value_idx - old_value_idx - 1);
+        }
+    }
+
+    std::filesystem::create_directory(install_dir / (unit_file + ".d"));
+
+    {
+        fp_src = std::ifstream(get_unit_file_prefix() + unit_file);
+        fp_tmp = std::ofstream(install_dir / (unit_file + ".d") / "multi-asic-dependencies.conf");
+        fp_tmp << "[Unit]\n";
+
+        while (std::getline(fp_src, line)) {
+            if (line.find("[Service]") != std::string::npos ||
+                    line.find("[Timer]") != std::string::npos) {
+                section_done = true;
+            } else if (line.find("[Install]") != std::string::npos) {
+                section_done = false;
+                fp_tmp << "[Install]\n";
+                fp_tmp << "WantedBy=\n";
+            } else if (line.find("[Unit]") != std::string::npos ||
+                    line.find("Description") != std::string::npos ||
+                    (section_done == true)) {
+            } else {
+                const auto kv_split = line.find("=");
+                std::string_view line_view = line;
+                auto key = line_view.substr(0, kv_split);
+                if (key != "After" && key != "Before"
+                        && key != "Requires" && key != "Wants"
+                        && key != "Requisite" && key != "WantedBy") {
+                    // Ignore keys that aren't going to need special handling for multi-instance
+                    // services.
                     continue;
                 }
-                if((value.find('.') == std::string_view::npos) ||
-                   (value.find('@') != std::string_view::npos)) {
-                    // If the value doesn't have a suffix, or it is already an instantiation
-                    // of a unit, ignore it
-                    fp_tmp << key << "=" << value << "\n";
-                } else {
-                    auto extension_idx = value.find(".");
-                    auto service_name = value.substr(0, extension_idx);
-                    auto type = value.substr(extension_idx + 1);
-                    if (num_asics > 1 && is_multi_instance_service(std::string(value))) {
-                        for(i = 0; i < num_asics; i++) {
-                            fp_tmp << key << "=" << service_name << "@" << i << "." << type << "\n";
-                         }
-                    } else if (smart_switch_npu && is_multi_instance_service_for_dpu(std::string(value))) {
-                        for(i = 0; i < num_dpus; i++) {
-                            fp_tmp << key << "=" << service_name << "@" << DPU_PREFIX << i << "." << type << "\n";
-                        }
-                    } else {
-                        fp_tmp << key << "=" << service_name << "." << type << "\n";
+                auto values = line_view.substr(kv_split + 1);
+                std::string_view value;
+                std::string_view::size_type value_idx = values.find(" ");
+                std::string_view::size_type old_value_idx = 0;
+                value = values.substr(0, value_idx);
+                do {
+                    if (value.length() == 0) {
+                        old_value_idx = value_idx;
+                        value_idx = values.find(" ", old_value_idx + 1);
+                        value = values.substr(old_value_idx + 1, value_idx - old_value_idx - 1);
+                        continue;
                     }
-                }
-                old_value_idx = value_idx;
-                if (value_idx != std::string_view::npos) {
-                    value_idx = values.find(" ", old_value_idx + 1);
-                    value = values.substr(old_value_idx + 1, value_idx - old_value_idx - 1);
-                }
-            } while (old_value_idx != std::string_view::npos);
+                    if((value.find('.') == std::string_view::npos) ||
+                            (value.find('@') != std::string_view::npos)) {
+                        // If the value doesn't have a suffix, or it is already an instantiation
+                        // of a unit, ignore it
+                        fp_tmp << key << "=" << value << "\n";
+                    } else {
+                        auto extension_idx = value.find(".");
+                        auto service_name = value.substr(0, extension_idx);
+                        auto type = value.substr(extension_idx + 1);
+                        if (num_asics > 1 && is_multi_instance_service(std::string(value))) {
+                            for(i = 0; i < num_asics; i++) {
+                                fp_tmp << key << "=" << service_name << "@" << i << "." << type << "\n";
+                            }
+                        } else if (smart_switch_npu && is_multi_instance_service_for_dpu(std::string(value))) {
+                            for(i = 0; i < num_dpus; i++) {
+                                fp_tmp << key << "=" << service_name << "@" << DPU_PREFIX << i << "." << type << "\n";
+                            }
+                        } else {
+                            fp_tmp << key << "=" << service_name << "." << type << "\n";
+                        }
+                    }
+                    old_value_idx = value_idx;
+                    if (value_idx != std::string_view::npos) {
+                        value_idx = values.find(" ", old_value_idx + 1);
+                        value = values.substr(old_value_idx + 1, value_idx - old_value_idx - 1);
+                    }
+                } while (old_value_idx != std::string_view::npos);
+            }
         }
     }
 }
