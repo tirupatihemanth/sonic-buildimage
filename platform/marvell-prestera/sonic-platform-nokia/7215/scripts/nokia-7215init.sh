@@ -22,7 +22,7 @@ load_kernel_drivers_late() {
     # Override mvGpioDrv.ko built-in mrvllibsai.deb with correct one
     GOOD="/usr/lib/modules/$(uname -r)/kernel/extra/mvGpioDrv.ko"
     find /var/lib/docker/overlay2/*/diff/usr/lib/modules -type f -name mvGpioDrv.ko \
-         -exec sh -c 'cp -a "$0" "$1" 2>/dev/null || true' "$GOOD" {} \;}
+         -exec sh -c 'cp -a "$0" "$1" 2>/dev/null || true' "$GOOD" {} \;
 }
 
 nokia_7215_profile()
