@@ -390,14 +390,13 @@ endif
 export SONIC_ROUTING_STACK
 export FRR_USER_UID
 export FRR_USER_GID
+export INCLUDE_FIPS
+export ENABLE_FIPS
 
 ###############################################################################
 ## Build Options
 ###############################################################################
 export DEB_BUILD_OPTIONS = hardening=+all
-
-export INCLUDE_FIPS
-export ENABLE_FIPS
 
 ###############################################################################
 ## Dumping key config attributes associated to current building exercise
