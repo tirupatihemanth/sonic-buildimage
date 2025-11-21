@@ -268,11 +268,6 @@ override ENABLE_ASAN = n
 endif
 endif
 
-ifeq ($(BLDENV),trixie)
-$(warning FIPS is not yet supported on Trixie)
-override INCLUDE_FIPS = n
-endif
-
 include $(RULES_PATH)/functions
 
 ifeq ($(SONIC_USE_PDDF_FRAMEWORK),y)
