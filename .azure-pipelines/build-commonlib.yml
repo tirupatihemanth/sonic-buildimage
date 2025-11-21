@@ -7,6 +7,13 @@ schedules:
     include:
       - master
       - 202???
+resources:
+  repositories:
+  - repository: buildimage
+    type: github
+    name: sonic-net/sonic-buildimage
+    ref: master
+    endpoint: sonic-net
 
 jobs:
-- template: template-commonlib.yml
+- template: .azure-pipelines/template-commonlib.yml@buildimage
