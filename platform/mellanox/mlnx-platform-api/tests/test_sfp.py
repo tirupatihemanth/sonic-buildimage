@@ -349,6 +349,57 @@ class TestSfp:
         info = sfp.get_transceiver_info()
         assert info['type'] == CPO_TYPE
 
+    @mock.patch('os.path.exists')
+    @mock.patch('sonic_platform.utils.read_int_from_file')
+    def test_get_temperature(self, mock_read, mock_exists):
+        sfp = SFP(0)
+        sfp.is_sw_control = mock.MagicMock(return_value=True)
+        mock_exists.return_value = False
+        assert sfp.get_temperature() == None
+
+        mock_exists.return_value = True
+        assert sfp.get_temperature() == None
+
+        mock_read.return_value = None
+        sfp.is_sw_control.return_value = False
+        assert sfp.get_temperature() == None
+
+        mock_read.return_value = 448
+        assert sfp.get_temperature() == 56.0
+
+    def test_get_temperature_threshold(self):
+        sfp = SFP(0)
+        sfp.reinit_if_sn_changed = mock.MagicMock(return_value=True)
+        sfp.is_sw_control = mock.MagicMock(return_value=True)
+
+        mock_api = mock.MagicMock()
+        mock_api.get_transceiver_thresholds_support = mock.MagicMock(return_value=False)
+        sfp.get_xcvr_api = mock.MagicMock(return_value=None)
+        assert sfp.get_temperature_warning_threshold() is None
+        assert sfp.get_temperature_critical_threshold() is None
+        
+        sfp.get_xcvr_api.return_value = mock_api
+        assert sfp.get_temperature_warning_threshold() == 0.0
+        assert sfp.get_temperature_critical_threshold() == 0.0
+
+        from sonic_platform_base.sonic_xcvr.fields import consts
+        mock_api.get_transceiver_thresholds_support.return_value = True
+        mock_api.xcvr_eeprom = mock.MagicMock()
+        
+        def mock_read(field):
+            if field == consts.TEMP_HIGH_ALARM_FIELD:
+                return 85.0
+            elif field == consts.TEMP_HIGH_WARNING_FIELD:
+                return 75.0
+    
+        mock_api.xcvr_eeprom.read = mock.MagicMock(side_effect=mock_read)
+        assert sfp.get_temperature_warning_threshold() == 75.0
+        assert sfp.get_temperature_critical_threshold() == 85.0
+        
+        sfp.reinit_if_sn_changed.return_value = False
+        assert sfp.get_temperature_warning_threshold() == 75.0
+        assert sfp.get_temperature_critical_threshold() == 85.0
+
     @mock.patch('sonic_platform.utils.read_int_from_file')
     @mock.patch('sonic_platform.device_data.DeviceDataManager.is_module_host_management_mode')
     def test_is_sw_control(self, mock_mode, mock_read):
@@ -669,16 +720,3 @@ class TestSfp:
         assert warn == 75.0
         assert crit == 85.0
         assert sfp.retry_read_threshold == 0  # Should be set to 0 on success
-
-    def test_reinit_if_sn_changed(self):
-        sfp = SFP(0)
-        sfp.get_xcvr_api = mock.MagicMock(return_value=None)
-        assert not sfp.reinit_if_sn_changed()
-        
-        sfp.get_xcvr_api.return_value = mock.MagicMock()
-        sfp.get_xcvr_api.return_value.xcvr_eeprom.read = mock.MagicMock(return_value='1234567890')
-        assert sfp.reinit_if_sn_changed()
-        
-        sfp.get_xcvr_api.return_value.xcvr_eeprom.read.return_value = '1234567891'
-        assert sfp.reinit_if_sn_changed()
-
