@@ -651,4 +651,3 @@ class TestSfp:
         
         sfp.get_xcvr_api.return_value.xcvr_eeprom.read.return_value = '1234567891'
         assert sfp.reinit_if_sn_changed()
-
