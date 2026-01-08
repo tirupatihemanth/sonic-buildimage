@@ -1,0 +1,11 @@
+[Unit]
+Description=Redis-Recorder service
+Before=database.service
+StartLimitIntervalSec=1200
+StartLimitBurst=3
+
+[Service]
+ExecStart=/usr/bin/sonic-db-rec
+
+[Install]
+WantedBy=multi-user.target
