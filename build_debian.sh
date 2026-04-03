@@ -628,6 +628,10 @@ if [[ $RFS_SPLIT_LAST_STAGE == y ]]; then
 
     trap_push 'sudo LANG=C chroot $FILESYSTEM_ROOT umount /proc || true'
     sudo LANG=C chroot $FILESYSTEM_ROOT mount proc /proc -t proc
+
+    ## Install kbuild for sign-file into docker image (not fsroot), needed for secure boot signing.
+    ## The RFS first stage installs kbuild that may no longer exist when only second stage executes.
+    sudo LANG=C DEBIAN_FRONTEND=noninteractive apt -y --allow-downgrades install ./$debs_path/linux-kbuild-${LINUX_KERNEL_VERSION}*_${CONFIGURED_ARCH}.deb
 fi
 
 ## Version file part 2
