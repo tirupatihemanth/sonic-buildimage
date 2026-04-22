@@ -18,6 +18,8 @@
 
 [Unit]
 Description=Mellanox Firmware Manager Service
+After=sonic.target
+Wants=sx-kernel.service
 
 [Service]
 Type=oneshot
@@ -26,6 +28,10 @@ ExecStartPre=/usr/bin/mst start --with_i2cdev
 ExecStart=/usr/local/bin/mlnx-fw-manager --clear-semaphore --verbose
 ExecStop=/usr/bin/mst stop
 TimeoutSec=300
+Restart=on-failure
+RestartSec=10
+StartLimitIntervalSec=120
+StartLimitBurst=3
 User=root
 
 [Install]

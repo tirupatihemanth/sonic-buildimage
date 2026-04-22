@@ -18,6 +18,7 @@
 
 [Unit]
 Description=SX Kernel Driver Service
+Requires=mlnx-fw-manager.service
 After=mlnx-fw-manager.service
 
 [Service]
